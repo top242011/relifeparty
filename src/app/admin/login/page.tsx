@@ -1,89 +1,72 @@
-// app/admin/login/page.tsx
-'use client'; // Client Component เพราะมีการจัดการ State และ Interaction กับผู้ใช้
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from 'utils/supabase/client'; // ใช้ Absolute Path
+import { getSupabaseBrowserClient } from 'utils/supabase/client';
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
-    const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const supabase = getSupabaseBrowserClient();
 
-    const handleLogin = async (event: React.FormEvent) => {
-        event.preventDefault();
-        setLoading(true);
-        setMessage('');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
 
-        const supabase = getSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-        try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
+    if (error) {
+      setError(error.message);
+    } else {
+      // ✅ จุดแก้ไขที่สำคัญที่สุดอยู่ตรงนี้
+      // 1. สั่งให้รีเฟรชข้อมูลจาก Server ก่อน เพื่อให้ Middleware รับรู้ถึง session ใหม่
+      router.refresh();
 
-            if (error) {
-                setMessage(error.message);
-            } else {
-                setMessage('เข้าสู่ระบบสำเร็จ! กำลังเปลี่ยนเส้นทาง...');
-                // router.push('/admin/dashboard'); // เดิม
-                window.location.href = '/admin/dashboard'; // ลองใช้แบบนี้เพื่อบังคับ Full Reload
-            }
-        } catch (err: any) {
-            setMessage(`เกิดข้อผิดพลาดที่ไม่คาดคิด: ${err.message}`);
-        } finally {
-            setLoading(false);
-        }
-    };
+      // 2. จากนั้นค่อยสั่งให้เปลี่ยนหน้าไปยัง Dashboard
+      router.push('/admin/dashboard');
+    }
+  };
 
-    return (
-        <div className="d-flex flex-column align-items-center justify-content-center min-vh-100 bg-gradient-primary-secondary p-4">
-            <div className="card shadow-lg p-4" style={{ maxWidth: '400px', width: '100%' }}>
-                <div className="card-body">
-                    <h2 className="card-title text-center mb-4 text-dark-blue">เข้าสู่ระบบ Admin</h2>
-                    <form onSubmit={handleLogin}>
-                        <div className="mb-3">
-                            <label htmlFor="emailInput" className="form-label text-dark-blue">อีเมล</label>
-                            <input
-                                type="email"
-                                className="form-control"
-                                id="emailInput"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                disabled={loading}
-                            />
-                        </div>
-                        <div className="mb-3">
-                            <label htmlFor="passwordInput" className="form-label text-dark-blue">รหัสผ่าน</label>
-                            <input
-                                type="password"
-                                className="form-control"
-                                id="passwordInput"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                disabled={loading}
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="btn btn-dark-blue w-100"
-                            disabled={loading}
-                        >
-                            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-                        </button>
-                    </form>
-                    {message && (
-                        <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`} role="alert">
-                            {message}
-                        </div>
-                    )}
-                </div>
+  return (
+    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
+      <div className="card shadow" style={{ width: '24rem' }}>
+        <div className="card-body p-5">
+          <h3 className="card-title text-center mb-4">Admin Login</h3>
+          <form onSubmit={handleLogin}>
+            <div className="mb-3">
+              <label htmlFor="email" className="form-label">Email address</label>
+              <input
+                type="email"
+                className="form-control"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
+            <div className="mb-3">
+              <label htmlFor="password" className="form-label">Password</label>
+              <input
+                type="password"
+                className="form-control"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            {error && <div className="alert alert-danger p-2">{error}</div>}
+            <button type="submit" className="btn btn-primary w-100">
+              Login
+            </button>
+          </form>
         </div>
-    );
+      </div>
+    </div>
+  );
 }
