@@ -1,39 +1,61 @@
 // middleware.ts
-import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from './utils/supabase/server'; // พาธสัมพัทธ์จาก middleware.ts
+import { createServerClient } from './utils/supabase/server'
+import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // สร้าง Response object เพื่อให้สามารถแก้ไข cookies ได้
-  const response = NextResponse.next({
+  let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
-  });
+  })
 
-  // สร้าง Supabase client ที่ตั้งค่าให้ใช้ cookies จาก request และ response
-  // เพื่อให้ Supabase สามารถอ่านและเขียน cookies ได้ใน middleware
   const supabase = createServerClient({
-    get: (name: string) => request.cookies.get(name)?.value,
-    set: (name: string, value: string, options: any) => {
-      request.cookies.set(name, value, options);
-      response.cookies.set(name, value, options);
+    get(name: string) {
+      return request.cookies.get(name)?.value
     },
-    remove: (name: string, options: any) => {
-      request.cookies.set(name, '', options);
-      response.cookies.set(name, '', options);
+    set(name: string, value: string, options) {
+      request.cookies.set({ name, value, ...options })
+      response = NextResponse.next({
+        request: {
+          headers: request.headers,
+        },
+      })
+      response.cookies.set({ name, value, ...options })
     },
-  });
+    remove(name: string, options) {
+      request.cookies.set({ name, value: '', ...options })
+      response = NextResponse.next({
+        request: {
+          headers: request.headers,
+        },
+      })
+      response.cookies.set({ name, value: '', ...options })
+    },
+  })
 
-  // Refresh the session
-  // นี่คือส่วนสำคัญที่จะทำให้ Supabase พยายาม Refresh session
-  // และตั้งค่า cookies ใหม่ (ถ้าจำเป็น) ใน response
-  await supabase.auth.getSession();
+  // Refresh session if expired - this will refresh the token if it's expired
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Return the response, potentially with updated cookies
-  return response;
+  // 1. ถ้ายังไม่ล็อกอิน และพยายามเข้าหน้า /admin อื่นๆ ที่ไม่ใช่หน้า login
+  if (!user && request.nextUrl.pathname.startsWith('/admin') && request.nextUrl.pathname !== '/admin/login') {
+    // ให้ redirect ไปยังหน้า login
+    const url = request.nextUrl.clone()
+    url.pathname = '/admin/login'
+    return NextResponse.redirect(url)
+  }
+
+  // 2. ถ้าล็อกอินแล้ว และกำลังจะเข้าหน้า login (เช่นกดปุ่ม back)
+  if (user && request.nextUrl.pathname === '/admin/login') {
+    // ให้ redirect ไปยังหน้า dashboard ทันที
+    const url = request.nextUrl.clone()
+    url.pathname = '/admin/dashboard'
+    return NextResponse.redirect(url)
+  }
+
+
+  return response
 }
 
-// กำหนดว่า middleware ควรทำงานกับ paths ใดบ้าง
 export const config = {
   matcher: [
     /*
@@ -41,10 +63,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - any /api/auth/ routes (our auth API routes)
-     * - public files (e.g., /vercel.svg)
-     * - This ensures middleware runs on all pages that need session handling
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/auth|.*\\..*).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-};
+}
