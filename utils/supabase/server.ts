@@ -1,64 +1,64 @@
 // utils/supabase/server.ts
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
-import { createClient as _createClient } from '@supabase/supabase-js';
-import { createServerClient as _createServerClient } from '@supabase/ssr';
-import { cookies as nextCookies } from 'next/headers';
-import type { CookieOptions } from '@supabase/ssr';
+// นี่คือเวอร์ชันที่ถูกต้องและแนะนำโดย Supabase
+// สังเกตว่าเราไม่ได้ใช้ createClient จาก @supabase/supabase-js โดยตรงสำหรับ Admin อีกต่อไป
+// เพื่อให้จัดการ Client ได้ในที่เดียว
 
-interface CookieHandler {
-  get: (name: string) => string | undefined | null;
-  set?: (name: string, value: string, options: CookieOptions) => void;
-  remove?: (name: string, options: CookieOptions) => void;
-}
+export function createSupabaseServerClient(readonly: boolean = false) {
+  const cookieStore = cookies()
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-}
-
-export const createServerClient = (
-  cookiesInstance?: CookieHandler
-) => {
-  const cookieStore = cookiesInstance || nextCookies();
-
-  return _createServerClient(
-    supabaseUrl,
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        set: (name: string, value: string, options: CookieOptions) => {
-          if (cookieStore.set) {
-            // ใช้ Type Assertion เพื่อบอก TypeScript ว่า cookieStore เป็น CookieHandler
-            (cookieStore as CookieHandler).set(name, value, options);
-          } else {
-            console.warn('Attempted to set cookie on a read-only cookie store.');
-          }
+        get(name: string) {
+          return cookieStore.get(name)?.value
         },
-        remove: (name: string, options: CookieOptions) => {
-          if (cookieStore.remove) {
-            // ใช้ Type Assertion เพื่อบอก TypeScript ว่า cookieStore เป็น CookieHandler
-            (cookieStore as CookieHandler).remove(name, options); // และแก้ typo: ลบ 'value' ออกตามที่แจ้งไปก่อนหน้านี้
-          } else {
-            console.warn('Attempted to remove cookie on a read-only cookie store.');
-          }
-        },
+        // ถ้าเป็น Readonly (เช่นใน Server Component) เราจะไม่ต้องมี set/remove
+        ...(readonly === false && {
+          set(name: string, value: string, options: CookieOptions) {
+            try {
+              cookieStore.set({ name, value, ...options })
+            } catch (error) {
+              // การโยน error นี้เป็นเรื่องปกติเมื่อพยายาม set cookie ใน Server Actions หรือ Route Handlers
+              // ที่พยายามจะ redirect หรือ stream response กลับไปแล้ว
+            }
+          },
+          remove(name: string, options: CookieOptions) {
+            try {
+              cookieStore.set({ name, value: '', ...options })
+            } catch (error) {
+              // เช่นเดียวกับด้านบน
+            }
+          },
+        })
       },
     }
-  );
-};
-export const createAdminClient = () => {
-  return _createClient(
-    supabaseUrl,
-    serviceRoleKey,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    }
-  );
-};
+  )
+}
+
+// สร้าง Admin client โดยใช้ service_role key
+export function createSupabaseAdminClient() {
+    const cookieStore = cookies()
+
+    return createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!, // ❗️ ใช้ Service Role Key ที่นี่
+        {
+            cookies: {
+                get(name: string) {
+                    return cookieStore.get(name)?.value
+                },
+            },
+            // สำหรับ Admin Client เราไม่จำเป็นต้องให้มันจัดการ auth state ของผู้ใช้
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false
+            }
+        }
+    )
+}

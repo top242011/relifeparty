@@ -1,33 +1,26 @@
 // src/app/admin/dashboard/page.tsx
 import { redirect } from 'next/navigation';
-import { createServerClient } from 'utils/supabase/server'; // ใช้ Server-side Supabase Client
-import AdminNavbar from 'src/components/admin/AdminNavbar'; // Import AdminNavbar
+// 🔽 1. เปลี่ยนชื่อฟังก์ชันที่ import
+import { createSupabaseServerClient } from 'utils/supabase/server';
+import AdminNavbar from 'src/components/admin/AdminNavbar';
 import Link from 'next/link';
 
 export default async function AdminDashboardPage() {
-  // สร้าง Supabase Client สำหรับ Server-side
-  // Middleware จะจัดการ session ให้แล้ว
-  const supabase = createServerClient();
+  // 🔽 2. เปลี่ยนชื่อฟังก์ชันที่เรียกใช้ และส่ง true เพื่อบอกว่าเป็นโหมดอ่านอย่างเดียว
+  const supabase = createSupabaseServerClient(true);
 
-  // ตรวจสอบสถานะการ Login ของผู้ใช้
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // เพิ่ม console.log สำหรับ Debugging
-  console.log('User in AdminDashboardPage:', user);
-  if (userError) {
-    console.error('Error fetching user in AdminDashboardPage:', userError);
-  }
-
-  // หากผู้ใช้ไม่ได้ Login ให้ redirect ไปยังหน้า Login
   if (!user) {
-    console.log('No user found, redirecting to login.');
     redirect('/admin/login');
   }
 
+  // ดึงข้อมูลสรุป (ตัวอย่าง)
+  const { count: policyCount } = await supabase.from('policies').select('*', { count: 'exact', head: true });
+
   return (
     <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar /> {/* ใช้ AdminNavbar Component */}
-
+      <AdminNavbar />
       <main className="container flex-grow-1 py-4">
         <h1 className="mb-4 text-dark-blue">Admin Dashboard</h1>
         <div className="row">
@@ -35,26 +28,8 @@ export default async function AdminDashboardPage() {
             <div className="card text-dark-blue shadow-sm">
               <div className="card-body">
                 <h5 className="card-title">นโยบายทั้งหมด</h5>
-                <p className="card-text fs-2 fw-bold">XX</p> {/* Placeholder */}
+                <p className="card-text fs-2 fw-bold">{policyCount ?? 0}</p>
                 <Link href="/admin/policies" className="btn btn-primary btn-sm">จัดการ</Link>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-4 mb-4">
-            <div className="card text-dark-blue shadow-sm">
-              <div className="card-body">
-                <h5 className="card-title">ข่าวสารทั้งหมด</h5>
-                <p className="card-text fs-2 fw-bold">XX</p> {/* Placeholder */}
-                <Link href="/admin/news" className="btn btn-primary btn-sm">จัดการ</Link>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-4 mb-4">
-            <div className="card text-dark-blue shadow-sm">
-              <div className="card-body">
-                <h5 className="card-title">กิจกรรมทั้งหมด</h5>
-                <p className="card-text fs-2 fw-bold">XX</p> {/* Placeholder */}
-                <Link href="/admin/events" className="btn btn-primary btn-sm">จัดการ</Link>
               </div>
             </div>
           </div>
@@ -62,7 +37,6 @@ export default async function AdminDashboardPage() {
         </div>
         <p className="mt-4 text-dark-blue">ยินดีต้อนรับ, {user?.email || 'Admin'}!</p>
       </main>
-
       <footer className="footer mt-auto py-3 bg-light border-top">
         <div className="container text-center text-muted">
           &copy; {new Date().getFullYear()} Relife Party Admin

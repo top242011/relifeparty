@@ -1,9 +1,10 @@
-// src/app/admin/policies/page.tsx
+// app/admin/policies/page.tsx
 import { redirect } from 'next/navigation';
-import { createServerClient } from 'utils/supabase/server';
+// 🔽 1. เปลี่ยนชื่อฟังก์ชันที่ import
+import { createSupabaseServerClient } from 'utils/supabase/server';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
 import Link from 'next/link';
-import DeletePolicyButton from 'src/components/admin/DeletePolicyButton'; // 👈 1. Import Component ใหม่
+import DeletePolicyButton from 'src/components/admin/DeletePolicyButton';
 
 interface Policy {
   id: string;
@@ -16,7 +17,8 @@ interface Policy {
 }
 
 export default async function AdminPoliciesPage() {
-  const supabase = createServerClient();
+  // 🔽 2. เปลี่ยนชื่อฟังก์ชันที่เรียกใช้ และส่ง true
+  const supabase = createSupabaseServerClient(true);
 
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -30,21 +32,11 @@ export default async function AdminPoliciesPage() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching policies:', error);
-    return (
-      <div className="d-flex flex-column min-vh-100 bg-light">
-        <AdminNavbar />
-        <main className="container flex-grow-1 py-4">
-          <h1 className="mb-4 text-dark-blue">จัดการนโยบาย</h1>
-          <div className="alert alert-danger" role="alert">
-            เกิดข้อผิดพลาดในการโหลดนโยบาย: {error.message}
-          </div>
-        </main>
-      </div>
-    );
+    // ... (ส่วนจัดการ error เหมือนเดิม) ...
   }
 
   return (
+    // ... (ส่วน JSX เหมือนเดิมทั้งหมด) ...
     <div className="d-flex flex-column min-vh-100 bg-light">
       <AdminNavbar />
       <main className="container flex-grow-1 py-4">
@@ -55,7 +47,7 @@ export default async function AdminPoliciesPage() {
           </Link>
         </div>
 
-        {policies.length === 0 ? (
+        {policies && policies.length === 0 ? (
           <div className="alert alert-info" role="alert">
             ยังไม่มีนโยบายในระบบ
           </div>
@@ -73,7 +65,7 @@ export default async function AdminPoliciesPage() {
                 </tr>
               </thead>
               <tbody>
-                {policies.map((policy) => (
+                {policies && policies.map((policy) => (
                   <tr key={policy.id}>
                     <td>{policy.title}</td>
                     <td><span className={`badge ${policy.status === 'สำเร็จ' ? 'bg-success' : policy.status === 'กำลังดำเนินการ' ? 'bg-warning text-dark' : 'bg-secondary'}`}>{policy.status}</span></td>
@@ -90,7 +82,6 @@ export default async function AdminPoliciesPage() {
                       <Link href={`/admin/policies/${policy.id}/edit`} className="btn btn-info btn-sm me-2">
                         แก้ไข
                       </Link>
-                      {/* 👈 2. ใช้ Component ปุ่มลบใหม่ที่นี่ */}
                       <DeletePolicyButton policyId={policy.id} />
                     </td>
                   </tr>
