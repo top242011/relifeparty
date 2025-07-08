@@ -1,42 +1,36 @@
-// app/admin/policies/page.tsx
-// หน้าสำหรับแสดงรายการนโยบายใน Admin Dashboard
-
-import { cookies } from 'next/headers';
+// src/app/admin/policies/page.tsx
 import { redirect } from 'next/navigation';
-import { createServerClient } from 'utils/supabase/server'; // ใช้ Server-side Supabase Client
-import AdminNavbar from '../../../components/admin/AdminNavbar'; // Import AdminNavbar
+import { createServerClient } from 'utils/supabase/server';
+import AdminNavbar from '../../../components/admin/AdminNavbar';
 import Link from 'next/link';
+import DeletePolicyButton from 'src/components/admin/DeletePolicyButton'; // 👈 1. Import Component ใหม่
 
 interface Policy {
   id: string;
   title: string;
   content: string;
   status: string;
-  publishDate: string; // เพิ่ม publishDate
-  imageUrl: string | null; // เพิ่ม imageUrl
+  publishDate: string;
+  imageUrl: string | null;
   created_at: string;
 }
 
 export default async function AdminPoliciesPage() {
   const supabase = createServerClient();
 
-  // ตรวจสอบสถานะการ Login ของผู้ใช้
   const { data: { user } } = await supabase.auth.getUser();
 
-  // หากผู้ใช้ไม่ได้ Login ให้ redirect ไปยังหน้า Login
   if (!user) {
     redirect('/admin/login');
   }
 
-  // ดึงข้อมูลนโยบายทั้งหมดจาก Supabase
   const { data: policies, error } = await supabase
     .from('policies')
     .select('*')
-    .order('created_at', { ascending: false }); // เรียงตามวันที่สร้างล่าสุด
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching policies:', error);
-    // สามารถแสดงข้อความ Error บนหน้าจอได้
     return (
       <div className="d-flex flex-column min-vh-100 bg-light">
         <AdminNavbar />
@@ -96,30 +90,8 @@ export default async function AdminPoliciesPage() {
                       <Link href={`/admin/policies/${policy.id}/edit`} className="btn btn-info btn-sm me-2">
                         แก้ไข
                       </Link>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={async () => {
-                          'use client'; // ต้องระบุว่าเป็น Client Component เพื่อใช้ onClick
-                          // Prompt for confirmation before deleting
-                          if (window.confirm('คุณแน่ใจหรือไม่ที่จะลบนโยบายนี้?')) {
-                            const { getSupabaseBrowserClient } = await import('../../../../utils/supabase/client');
-                            const supabaseClient = getSupabaseBrowserClient();
-                            const { error: deleteError } = await supabaseClient
-                              .from('policies')
-                              .delete()
-                              .eq('id', policy.id);
-
-                            if (deleteError) {
-                              alert(`เกิดข้อผิดพลาดในการลบนโยบาย: ${deleteError.message}`);
-                            } else {
-                              alert('ลบนโยบายสำเร็จ');
-                              window.location.reload(); // Refresh the page to show updated list
-                            }
-                          }
-                        }}
-                      >
-                        ลบ
-                      </button>
+                      {/* 👈 2. ใช้ Component ปุ่มลบใหม่ที่นี่ */}
+                      <DeletePolicyButton policyId={policy.id} />
                     </td>
                   </tr>
                 ))}
