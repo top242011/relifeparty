@@ -1,6 +1,8 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bs-primary: #3B82F6; /* สีน้ำเงินหลัก */
+  --bs-secondary: #60A5FA; /* สีฟ้าอ่อน */
+  --bs-accent: #BFDBFE; /* สีฟ้าอ่อนมาก */
+  --bs-dark-blue: #1E3A8A; /* สีน้ำเงินเข้ม */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -40,3 +42,5 @@ a {
     color-scheme: dark;
   }
 }
+
+@import 'bootstrap/dist/css/bootstrap.min.css';
