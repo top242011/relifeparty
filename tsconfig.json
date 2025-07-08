@@ -1,3 +1,4 @@
+// tsconfig.json
 {
   "compilerOptions": {
     "target": "ES2017",
@@ -18,10 +19,20 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".", // เพิ่มบรรทัดนี้: กำหนดให้ root ของโปรเจกต์เป็น base สำหรับ absolute imports
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"] // คงไว้สำหรับไฟล์ที่อยู่ใน src/
+      // หากต้องการใช้ alias สำหรับ utils ก็สามารถเพิ่มได้ เช่น
+      // "@utils/*": ["./utils/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  // ตรวจสอบให้แน่ใจว่า include ครอบคลุมทั้ง src และ utils
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "utils/**/*.ts" // เพิ่มบรรทัดนี้เพื่อให้ TypeScript รู้จักไฟล์ใน utils
+  ],
   "exclude": ["node_modules"]
 }

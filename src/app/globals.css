@@ -1,3 +1,7 @@
+/* Import Bootstrap CSS */
+@import 'bootstrap/dist/css/bootstrap.min.css';
+
+/* กำหนด CSS Variables สำหรับสีหลักของพรรค */
 :root {
   --bs-primary: #3B82F6; /* สีน้ำเงินหลัก */
   --bs-secondary: #60A5FA; /* สีฟ้าอ่อน */
@@ -5,42 +9,31 @@
   --bs-dark-blue: #1E3A8A; /* สีน้ำเงินเข้ม */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* กำหนดฟอนต์ Inter ทั่วทั้งแอป */
+/* ลบ CSS ที่มาจาก template เดิมที่อาจขัดแย้งกับ Bootstrap */
 html,
 body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
+  font-family: 'Inter', sans-serif; /* ใช้ฟอนต์ Inter */
+  height: 100%; /* ทำให้ body สูงเต็มหน้าจอ */
   margin: 0;
+  padding: 0;
+  color: #333; /* กำหนดสีข้อความเริ่มต้นที่อ่านง่าย */
+  background-color: #f8f9fa; /* กำหนดพื้นหลังเริ่มต้น */
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* Custom gradient background */
+.bg-gradient-primary-secondary {
+  background: linear-gradient(to bottom right, var(--bs-primary), var(--bs-secondary));
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* กำหนดสีปุ่มหลัก */
+.btn-dark-blue {
+  background-color: var(--bs-dark-blue);
+  color: white;
+  border-color: var(--bs-dark-blue);
 }
 
-@import 'bootstrap/dist/css/bootstrap.min.css';
+.btn-dark-blue:hover {
+  background-color: #1a3070; /* สีเข้มขึ้นเมื่อ hover */
+  border-color: #1a3070;
+}
