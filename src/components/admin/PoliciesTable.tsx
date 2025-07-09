@@ -1,64 +1,120 @@
-// src/components/admin/PoliciesTable.tsx
-'use client'
+'use client';
 
-import Link from 'next/link'
-import DeleteButton from './DeleteButton' // 1. ตรวจสอบว่า import Component ที่ถูกต้อง
+import { useState, useEffect, useMemo } from 'react';
+import { createClient } from '../../../utils/supabase/client';
+import Link from 'next/link';
+import DeleteButton from './DeleteButton';
 
-// กำหนด Type ของ Policy
-interface Policy {
+type Policy = {
   id: string;
   title: string;
-  status: string;
-  publishDate: string;
-  imageUrl: string | null;
+  description: string;
+  file_url: string;
   created_at: string;
-}
+};
 
-export default function PoliciesTable({ policies }: { policies: Policy[] }) {
-  if (policies.length === 0) {
-    return (
-      <div className="alert alert-info" role="alert">
-        ยังไม่มีนโยบายในระบบ
-      </div>
-    )
+type SortConfig = {
+  key: keyof Policy | null;
+  direction: 'ascending' | 'descending';
+};
+
+export default function PoliciesTable() {
+  const supabase = createClient();
+  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'title', direction: 'ascending' });
+
+  useEffect(() => {
+    const fetchPolicies = async () => {
+      const { data, error } = await supabase
+        .from('policies')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching policies:', error);
+      } else {
+        setPolicies(data);
+      }
+      setLoading(false);
+    };
+
+    fetchPolicies();
+  }, [supabase]);
+
+  const sortedItems = useMemo(() => {
+    const sortableItems = [...policies];
+    const key = sortConfig.key; // Capture the key
+    
+    // FIX: Check the captured key to ensure it's not null.
+    // This allows TypeScript to correctly infer the type within the sort callback.
+    if (key) {
+      sortableItems.sort((a, b) => {
+        const valA = a[key];
+        const valB = b[key];
+
+        if (valA < valB) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (valA > valB) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [policies, sortConfig]);
+
+  const requestSort = (key: keyof Policy) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key: keyof Policy) => {
+    if (sortConfig.key !== key) {
+      return '';
+    }
+    return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+  };
+
+
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
   return (
-    <div className="table-responsive">
-      <table className="table table-striped table-hover shadow-sm rounded overflow-hidden">
-        <thead className="bg-primary text-white">
+    <div className="overflow-x-auto">
+      <table className="min-w-full bg-white">
+        <thead>
           <tr>
-            <th scope="col">ชื่อนโยบาย</th>
-            <th scope="col">สถานะ</th>
-            <th scope="col">วันที่เผยแพร่</th>
-            <th scope="col">สร้างเมื่อ</th>
-            <th scope="col">รูปภาพ</th>
-            <th scope="col">การจัดการ</th>
+            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">
+              <button onClick={() => requestSort('title')}>
+                Title {getSortIndicator('title')}
+              </button>
+            </th>
+            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">
+              <button onClick={() => requestSort('created_at')}>
+                Date {getSortIndicator('created_at')}
+              </button>
+            </th>
+            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {policies.map((policy) => (
+          {sortedItems.map((policy) => (
             <tr key={policy.id}>
-              <td>{policy.title}</td>
-              <td>
-                <span className={`badge ${policy.status === 'สำเร็จ' ? 'bg-success' : policy.status === 'กำลังดำเนินการ' ? 'bg-warning text-dark' : 'bg-secondary'}`}>
-                  {policy.status}
-                </span>
-              </td>
-              <td>{new Date(policy.publishDate).toLocaleDateString('th-TH')}</td>
-              <td>{new Date(policy.created_at).toLocaleDateString('th-TH')}</td>
-              <td>
-                {policy.imageUrl ? (
-                  <img src={policy.imageUrl} alt={policy.title} className="img-thumbnail" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
-                ) : (
-                  <span>-</span>
-                )}
-              </td>
-              <td>
-                <Link href={`/admin/policies/${policy.id}/edit`} className="btn btn-info btn-sm me-2">
-                  แก้ไข
+              <td className="px-6 py-4 whitespace-nowrap">{policy.title}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{new Date(policy.created_at).toLocaleDateString()}</td>
+              <td className="flex px-6 py-4 space-x-2 whitespace-nowrap">
+                <a href={policy.file_url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
+                  View
+                </a>
+                <Link href={`/admin/policies/${policy.id}/edit`} className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
+                  Edit
                 </Link>
-                {/* 2. แก้ไข props จาก policyId เป็น recordId ที่นี่ */}
                 <DeleteButton recordId={policy.id} tableName="policies" />
               </td>
             </tr>
@@ -66,5 +122,5 @@ export default function PoliciesTable({ policies }: { policies: Policy[] }) {
         </tbody>
       </table>
     </div>
-  )
+  );
 }

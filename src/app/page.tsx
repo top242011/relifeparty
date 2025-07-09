@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import Link from 'next/link';
+import Image from 'next/image'; // FIX: Imported the Next.js Image component
 
-// FIX: Defined a specific type for news articles instead of using 'any[]'.
 interface NewsArticle {
   id: string;
   title: string;
@@ -15,7 +15,6 @@ interface NewsArticle {
 
 export default function HomePage() {
   const supabase = createClient();
-  // FIX: Used the NewsArticle[] type for the state.
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +40,6 @@ export default function HomePage() {
     <div className="container p-4 mx-auto">
       <header className="py-10 text-center bg-gray-100 rounded-lg">
         <h1 className="text-4xl font-bold text-gray-800">พรรคคืนชีพ</h1>
-        {/* FIX: Escaped double quotes to prevent JSX parsing errors. */}
         <p className="mt-4 text-lg text-gray-600">&quot;พรรคการเมืองที่มุ่งมั่นสร้างสรรค์สังคมที่ดีขึ้นสำหรับทุกคน&quot;</p>
       </header>
 
@@ -53,7 +51,10 @@ export default function HomePage() {
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {news.map((item) => (
               <div key={item.id} className="overflow-hidden bg-white rounded-lg shadow-lg">
-                <img src={item.image_url} alt={item.title} className="object-cover w-full h-48" />
+                {/* FIX: Replaced <img> with <Image> for optimization */}
+                <div className="relative w-full h-48">
+                  <Image src={item.image_url} alt={item.title} layout="fill" objectFit="cover" />
+                </div>
                 <div className="p-6">
                   <h3 className="mb-2 text-xl font-bold">{item.title}</h3>
                   <p className="text-gray-700">{item.content.substring(0, 100)}...</p>

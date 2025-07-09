@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { JSX } from 'react';
 import { createClient } from '../../../../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
@@ -12,12 +13,7 @@ type Policy = {
   created_at: string;
 };
 
-// FIX: Aligned the props type with Next.js's expected PageProps structure.
-type PageProps = {
-  params: { id: string };
-};
-
-export default function EditPolicyPage({ params }: PageProps) {
+export default function EditPolicyPage({ params }: { params: { id: string } }): JSX.Element {
   const supabase = createClient();
   const router = useRouter();
   const [policy, setPolicy] = useState<Policy | null>(null);
@@ -76,7 +72,8 @@ export default function EditPolicyPage({ params }: PageProps) {
     if (file) {
       try {
         fileUrl = await handleFileUpload(file);
-      } catch(e) {
+      } catch (error) {
+        console.error('File upload failed:', error);
         alert('File upload failed. Please try again.');
         return;
       }
@@ -96,14 +93,10 @@ export default function EditPolicyPage({ params }: PageProps) {
     }
   };
 
-  if (loading) {
+  if (loading || !policy) {
     return <div>Loading...</div>;
   }
   
-  if (!policy) {
-    return <div>Policy not found.</div>;
-  }
-
   return (
     <div className="container p-4 mx-auto">
       <h1 className="mb-4 text-2xl font-bold">Edit Policy</h1>

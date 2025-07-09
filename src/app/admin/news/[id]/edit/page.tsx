@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { JSX } from 'react';
 import { createClient } from '../../../../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 type News = {
   id: string;
@@ -11,12 +13,7 @@ type News = {
   image_url: string;
 };
 
-// FIX: Aligned the props type with Next.js's expected PageProps structure.
-type PageProps = {
-  params: { id: string };
-};
-
-export default function EditNewsPage({ params }: PageProps) {
+export default function EditNewsPage({ params }: { params: { id: string } }): JSX.Element {
   const supabase = createClient();
   const router = useRouter();
   const [news, setNews] = useState<News | null>(null);
@@ -76,6 +73,7 @@ export default function EditNewsPage({ params }: PageProps) {
       try {
         imageUrl = await handleFileUpload(file);
       } catch (error) {
+        console.error('Image upload failed:', error);
         alert('Failed to upload image. Please try again.');
         return;
       }
@@ -95,12 +93,8 @@ export default function EditNewsPage({ params }: PageProps) {
     }
   };
 
-  if (loading) {
+  if (loading || !news) {
     return <div>Loading...</div>;
-  }
-
-  if (!news) {
-    return <div>News not found.</div>;
   }
 
   return (
@@ -128,7 +122,7 @@ export default function EditNewsPage({ params }: PageProps) {
         </div>
         <div className="mb-4">
           <label className="block mb-2 text-sm font-bold text-gray-700">Image</label>
-          {news.image_url && <img src={news.image_url} alt={title} className="w-32 h-32 mb-4" />}
+          {news.image_url && <Image src={news.image_url} alt={title} width={128} height={128} className="object-cover w-32 h-32 mb-4" />}
           <input
             type="file"
             onChange={handleFileChange}

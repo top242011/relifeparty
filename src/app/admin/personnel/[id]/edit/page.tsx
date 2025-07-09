@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { JSX } from 'react';
 import { createClient } from '../../../../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import Select, { MultiValue } from 'react-select';
+import Image from 'next/image';
 
 interface SelectOption {
   value: string;
@@ -24,12 +26,7 @@ type Committee = {
     name: string;
 };
 
-// FIX: Aligned the props type with Next.js's expected PageProps structure.
-type PageProps = {
-    params: { id: string };
-};
-
-export default function EditPersonnelPage({ params }: PageProps) {
+export default function EditPersonnelPage({ params }: { params: { id: string } }): JSX.Element {
     const supabase = createClient();
     const router = useRouter();
     const [personnel, setPersonnel] = useState<Personnel | null>(null);
@@ -108,7 +105,8 @@ export default function EditPersonnelPage({ params }: PageProps) {
         if (file) {
             try {
                 imageUrl = await handleFileUpload(file);
-            } catch(e) {
+            } catch(error) {
+                console.error('Image upload failed:', error);
                 alert('Image upload failed');
                 return;
             }
@@ -134,8 +132,9 @@ export default function EditPersonnelPage({ params }: PageProps) {
         }
     };
 
-    if (loading) return <div>Loading...</div>;
-    if (!personnel) return <div>Personnel not found.</div>;
+    if (loading || !personnel) {
+        return <div>Loading...</div>;
+    }
 
     const committeeOptions: SelectOption[] = committees.map(c => ({ value: c.id, label: c.name }));
 
@@ -167,7 +166,7 @@ export default function EditPersonnelPage({ params }: PageProps) {
                 </div>
                 <div className="mb-4">
                     <label className="block mb-2 text-sm font-bold text-gray-700">Image</label>
-                    {personnel.image_url && <img src={personnel.image_url} alt={name} className="w-32 h-32 mb-4" />}
+                    {personnel.image_url && <Image src={personnel.image_url} alt={name} width={128} height={128} className="object-cover w-32 h-32 mb-4" />}
                     <input type="file" onChange={handleFileChange} className="w-full file-input file-input-bordered" />
                 </div>
                 <button type="submit" className="btn btn-primary">Update Personnel</button>
