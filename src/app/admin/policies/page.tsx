@@ -1,102 +1,188 @@
-// app/admin/policies/page.tsx
-import { redirect } from 'next/navigation';
-// 🔽 1. เปลี่ยนชื่อฟังก์ชันที่ import
-import { createSupabaseServerClient } from 'utils/supabase/server';
-import AdminNavbar from '../../../components/admin/AdminNavbar';
-import Link from 'next/link';
-import DeletePolicyButton from 'src/components/admin/DeletePolicyButton';
+'use client'
 
-interface Policy {
-  id: string;
-  title: string;
-  content: string;
-  status: string;
-  publishDate: string;
-  imageUrl: string | null;
-  created_at: string;
-}
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '../../../../utils/supabase/client' // 👈 1. แก้ path และชื่อ import
+import AdminNavbar from 'src/components/admin/AdminNavbar'
+import Link from 'next/link'
 
-export default async function AdminPoliciesPage() {
-  // 🔽 2. เปลี่ยนชื่อฟังก์ชันที่เรียกใช้ และส่ง true
-  const supabase = createSupabaseServerClient(true);
+export default function EditPolicyPage({ params }: { params: { id: string } }) {
+  const policyId = params.id
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [publishDate, setPublishDate] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [status, setStatus] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [message, setMessage] = useState('')
+  const router = useRouter()
+  const supabase = createClient() // 👈 2. แก้ชื่อฟังก์ชันที่เรียกใช้
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // ... โค้ดส่วนที่เหลือเหมือนเดิม
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('policies')
+          .select('*')
+          .eq('id', policyId)
+          .single()
 
-  if (!user) {
-    redirect('/admin/login');
-  }
+        if (error) {
+          throw error
+        }
 
-  const { data: policies, error } = await supabase
-    .from('policies')
-    .select('*')
-    .order('created_at', { ascending: false });
+        if (data) {
+          setTitle(data.title)
+          setContent(data.content)
+          setPublishDate(new Date(data.publishDate).toISOString().split('T')[0] || '')
+          setImageUrl(data.imageUrl || '')
+          setStatus(data.status)
+        }
+      } catch (err: any) {
+        setMessage(`เกิดข้อผิดพลาดในการโหลดนโยบาย: ${err.message}`)
+      } finally {
+        setLoading(false)
+      }
+    };
 
-  if (error) {
-    // ... (ส่วนจัดการ error เหมือนเดิม) ...
+    if (policyId) {
+      fetchPolicy()
+    }
+  }, [policyId, supabase]);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setMessage('');
+
+    try {
+      const { error } = await supabase
+        .from('policies')
+        .update({
+          title,
+          content,
+          publishDate: publishDate || null,
+          imageUrl: imageUrl || null,
+          status,
+        })
+        .eq('id', policyId)
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage('แก้ไขนโยบายสำเร็จ!');
+      router.push('/admin/policies');
+      router.refresh(); // เพิ่ม refresh
+    } catch (err: any) {
+      setMessage(`เกิดข้อผิดพลาดในการบันทึก: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+        // ... JSX loading เหมือนเดิม
+        <div className="d-flex flex-column min-vh-100 bg-light">
+            <AdminNavbar />
+            <main className="container flex-grow-1 py-4 text-center">
+            <p className="text-dark-blue">กำลังโหลดข้อมูลนโยบาย...</p>
+            </main>
+        </div>
+    )
   }
 
   return (
-    // ... (ส่วน JSX เหมือนเดิมทั้งหมด) ...
+    // ... JSX Form เหมือนเดิม
     <div className="d-flex flex-column min-vh-100 bg-light">
       <AdminNavbar />
       <main className="container flex-grow-1 py-4">
-        <h1 className="mb-4 text-dark-blue">จัดการนโยบาย</h1>
-        <div className="d-flex justify-content-end mb-3">
-          <Link href="/admin/policies/create" className="btn btn-dark-blue">
-            + เพิ่มนโยบายใหม่
-          </Link>
+        <h1 className="mb-4 text-dark-blue">แก้ไขนโยบาย</h1>
+        <div className="card shadow-sm p-4">
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label htmlFor="title" className="form-label text-dark-blue">ชื่อนโยบาย</label>
+              <input
+                type="text"
+                className="form-control"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                disabled={submitting}
+              />
+            </div>
+            <div className="mb-3">
+              <label htmlFor="content" className="form-label text-dark-blue">รายละเอียดนโยบาย</label>
+              <textarea
+                className="form-control"
+                id="content"
+                rows={5}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                required
+                disabled={submitting}
+              ></textarea>
+            </div>
+            <div className="mb-3">
+              <label htmlFor="publishDate" className="form-label text-dark-blue">วันที่เผยแพร่</label>
+              <input
+                type="date"
+                className="form-control"
+                id="publishDate"
+                value={publishDate}
+                onChange={(e) => setPublishDate(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+            <div className="mb-3">
+              <label htmlFor="imageUrl" className="form-label text-dark-blue">URL รูปภาพ (จาก Google Drive)</label>
+              <input
+                type="url"
+                className="form-control"
+                id="imageUrl"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+            <div className="mb-3">
+              <label htmlFor="status" className="form-label text-dark-blue">สถานะ</label>
+              <select
+                className="form-select"
+                id="status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                disabled={submitting}
+              >
+                <option value="เสนอแล้ว">เสนอแล้ว</option>
+                <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
+                <option value="สำเร็จ">สำเร็จ</option>
+                <option value="ถูกระงับ">ถูกระงับ</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              className="btn btn-dark-blue me-2"
+              disabled={submitting}
+            >
+              {submitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+            </button>
+            <Link href="/admin/policies" className="btn btn-secondary">
+              ยกเลิก
+            </Link>
+          </form>
+          {message && (
+            <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`} role="alert">
+              {message}
+            </div>
+          )}
         </div>
-
-        {policies && policies.length === 0 ? (
-          <div className="alert alert-info" role="alert">
-            ยังไม่มีนโยบายในระบบ
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-striped table-hover shadow-sm rounded overflow-hidden">
-              <thead className="bg-dark-blue text-white">
-                <tr>
-                  <th scope="col">ชื่อนโยบาย</th>
-                  <th scope="col">สถานะ</th>
-                  <th scope="col">วันที่เผยแพร่</th>
-                  <th scope="col">สร้างเมื่อ</th>
-                  <th scope="col">รูปภาพ</th>
-                  <th scope="col">การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {policies && policies.map((policy) => (
-                  <tr key={policy.id}>
-                    <td>{policy.title}</td>
-                    <td><span className={`badge ${policy.status === 'สำเร็จ' ? 'bg-success' : policy.status === 'กำลังดำเนินการ' ? 'bg-warning text-dark' : 'bg-secondary'}`}>{policy.status}</span></td>
-                    <td>{new Date(policy.publishDate).toLocaleDateString('th-TH')}</td>
-                    <td>{new Date(policy.created_at).toLocaleDateString('th-TH')}</td>
-                    <td>
-                      {policy.imageUrl ? (
-                        <img src={policy.imageUrl} alt={policy.title} className="img-thumbnail" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </td>
-                    <td>
-                      <Link href={`/admin/policies/${policy.id}/edit`} className="btn btn-info btn-sm me-2">
-                        แก้ไข
-                      </Link>
-                      <DeletePolicyButton policyId={policy.id} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </main>
-
-      <footer className="footer mt-auto py-3 bg-light border-top">
-        <div className="container text-center text-muted">
-          &copy; {new Date().getFullYear()} Relife Party Admin
-        </div>
-      </footer>
     </div>
-  );
+  )
 }

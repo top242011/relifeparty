@@ -1,13 +1,13 @@
-// components/admin/AdminNavbar.tsx
-// Navbar สำหรับ Admin Dashboard (Client Component เพราะมีปุ่ม Logout)
-'use client'; // เนื่องจากมีปุ่ม Logout ที่เป็น Client Component
+// src/components/admin/AdminNavbar.tsx
+'use client'
 
-import Link from 'next/link';
-import LogoutButton from './LogoutButton'; // Import LogoutButton
+import Link from 'next/link'
+import LogoutButton from './LogoutButton'
 
 export default function AdminNavbar() {
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark-blue shadow-sm">
+    // 🔽 แก้ไขตรงนี้: เปลี่ยนจาก 'bg-dark-blue' เป็น 'bg-primary'
+    <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
       <div className="container-fluid">
         <Link href="/admin/dashboard" className="navbar-brand">
           Relife Party Admin
@@ -16,7 +16,7 @@ export default function AdminNavbar() {
           className="navbar-toggler"
           type="button"
           data-bs-toggle="collapse"
-          data-bs-target="#navbarNavAdmin" // เปลี่ยน ID เพื่อหลีกเลี่ยงความขัดแย้ง
+          data-bs-target="#navbarNavAdmin"
           aria-controls="navbarNavAdmin"
           aria-expanded="false"
           aria-label="Toggle navigation"
@@ -46,26 +46,11 @@ export default function AdminNavbar() {
               </Link>
             </li>
             <li className="nav-item">
-              <Link href="/admin/meetings" className="nav-link">
-                จัดการการประชุม
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link href="/admin/personnel" className="nav-link">
-                จัดการบุคลากร
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link href="/admin/motions" className="nav-link">
-                จัดการญัตติ
-              </Link>
-            </li>
-            <li className="nav-item">
-              <LogoutButton /> {/* ใช้ LogoutButton Component */}
+              <LogoutButton />
             </li>
           </ul>
         </div>
       </div>
     </nav>
-  );
+  )
 }

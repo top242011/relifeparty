@@ -1,57 +1,59 @@
-// src/app/admin/policies/create/page.tsx
-'use client'; // Client Component เพราะมีการจัดการ State และ Interaction กับฟอร์ม
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from 'utils/supabase/client'; // ใช้ Client-side Supabase Client
-import AdminNavbar from 'src/components/admin/AdminNavbar'; // Import AdminNavbar
-import Link from 'next/link';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '../../../../../utils/supabase/client' // 👈 1. แก้ path และชื่อ import
+import AdminNavbar from 'src/components/admin/AdminNavbar'
+import Link from 'next/link'
 
 export default function CreatePolicyPage() {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [publishDate, setPublishDate] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [status, setStatus] = useState('เสนอแล้ว'); // Default status
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const router = useRouter();
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [publishDate, setPublishDate] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [status, setStatus] = useState('เสนอแล้ว')
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  const router = useRouter()
 
   const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoading(true);
-    setMessage('');
+    event.preventDefault()
+    setLoading(true)
+    setMessage('')
 
-    const supabase = getSupabaseBrowserClient();
+    const supabase = createClient() // 👈 2. แก้ชื่อฟังก์ชันที่เรียกใช้
 
+    // ... โค้ดส่วนที่เหลือเหมือนเดิม
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('policies')
         .insert([
           {
             title,
             content,
-            "publishDate": publishDate || null, // Convert empty string to null for DATE type
-            "imageUrl": imageUrl || null, // Convert empty string to null
+            publishDate: publishDate || null,
+            imageUrl: imageUrl || null,
             status,
           },
         ])
-        .select(); // Select the inserted data
+        .select()
 
       if (error) {
-        throw error;
+        throw error
       }
 
-      setMessage('เพิ่มนโยบายสำเร็จ!');
-      router.push('/admin/policies'); // Redirect กลับไปหน้ารายการนโยบาย
+      setMessage('เพิ่มนโยบายสำเร็จ!')
+      router.push('/admin/policies')
+      router.refresh() // เพิ่ม refresh เพื่อให้หน้า list อัปเดต
     } catch (err: any) {
-      setMessage(`เกิดข้อผิดพลาด: ${err.message}`);
+      setMessage(`เกิดข้อผิดพลาด: ${err.message}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   };
 
   return (
+    // ... JSX เหมือนเดิม
     <div className="d-flex flex-column min-vh-100 bg-light">
       <AdminNavbar />
       <main className="container flex-grow-1 py-4">
@@ -143,5 +145,5 @@ export default function CreatePolicyPage() {
         </div>
       </footer>
     </div>
-  );
+  )
 }

@@ -1,24 +1,21 @@
-// components/admin/LogoutButton.tsx
-'use client'; // ระบุว่าเป็น Client Component
+// src/components/admin/LogoutButton.tsx
+'use client'
 
-import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from '../../../utils/supabase/client'; // ใช้ Client-side Supabase Client
+import { useRouter } from 'next/navigation'
+import { createClient } from '../../../utils/supabase/client'
 
 export default function LogoutButton() {
-  const router = useRouter();
+  const router = useRouter()
 
   const handleLogout = async () => {
-    const supabase = getSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    router.push('/admin/login'); // Redirect ไปหน้า Login หลังจาก Logout
-  };
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    // ไม่ต้องทำอะไรเพิ่ม เพราะ AuthLayout จะจัดการ redirect ให้เอง
+  }
 
   return (
-    <button
-      className="btn btn-outline-light ms-2"
-      onClick={handleLogout}
-    >
+    <button className="btn btn-outline-light ms-2" onClick={handleLogout}>
       ออกจากระบบ
     </button>
-  );
+  )
 }

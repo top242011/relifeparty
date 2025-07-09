@@ -1,97 +1,93 @@
 // src/app/admin/policies/[id]/edit/page.tsx
-'use client'; // Client Component เพราะมีการจัดการ State และ Interaction กับฟอร์ม
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from 'utils/supabase/client'; // ใช้ Client-side Supabase Client
-import AdminNavbar from 'src/components/admin/AdminNavbar'; // Import AdminNavbar
-import Link from 'next/link';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '../../../../../../utils/supabase/client' // 👈 1. แก้ไข import
+import AdminNavbar from 'src/components/admin/AdminNavbar'
+import Link from 'next/link'
 
 interface Policy {
-  id: string;
-  title: string;
-  content: string;
-  status: string;
-  publishDate: string;
-  imageUrl: string | null;
-  created_at: string;
+  id: string
+  title: string
+  content: string
+  status: string
+  publishDate: string
+  imageUrl: string | null
+  created_at: string
 }
 
 export default function EditPolicyPage({ params }: { params: { id: string } }) {
-  const policyId = params.id; // ดึง id ของนโยบายจาก URL
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [publishDate, setPublishDate] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [status, setStatus] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState('');
-  const router = useRouter();
-  const supabase = getSupabaseBrowserClient(); // สร้าง client ครั้งเดียว
+  const policyId = params.id
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [publishDate, setPublishDate] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [status, setStatus] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [message, setMessage] = useState('')
+  const router = useRouter()
+  const supabase = createClient() // 👈 2. แก้ไขการเรียกใช้ฟังก์ชัน
 
   useEffect(() => {
     const fetchPolicy = async () => {
+      if (!policyId) return
+
       try {
         const { data, error } = await supabase
           .from('policies')
           .select('*')
           .eq('id', policyId)
-          .single(); // ดึงข้อมูลแค่ record เดียว
+          .single()
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error
 
         if (data) {
-          setTitle(data.title);
-          setContent(data.content);
-          setPublishDate(data.publishDate || ''); // Set to empty string if null
-          setImageUrl(data.imageUrl || ''); // Set to empty string if null
-          setStatus(data.status);
+          setTitle(data.title)
+          setContent(data.content)
+          setPublishDate(data.publishDate ? new Date(data.publishDate).toISOString().split('T')[0] : '')
+          setImageUrl(data.imageUrl || '')
+          setStatus(data.status)
         }
       } catch (err: any) {
-        setMessage(`เกิดข้อผิดพลาดในการโหลดนโยบาย: ${err.message}`);
+        setMessage(`เกิดข้อผิดพลาดในการโหลดนโยบาย: ${err.message}`)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-
-    if (policyId) {
-      fetchPolicy();
     }
-  }, [policyId, supabase]); // Dependency array: policyId และ supabase
+
+    fetchPolicy()
+  }, [policyId, supabase])
 
   const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setMessage('');
+    event.preventDefault()
+    setSubmitting(true)
+    setMessage('')
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('policies')
         .update({
           title,
           content,
-          "publishDate": publishDate || null,
-          "imageUrl": imageUrl || null,
+          publishDate: publishDate || null,
+          imageUrl: imageUrl || null,
           status,
         })
         .eq('id', policyId)
-        .select(); // Select the updated data
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error
 
-      setMessage('แก้ไขนโยบายสำเร็จ!');
-      router.push('/admin/policies'); // Redirect กลับไปหน้ารายการนโยบาย
+      setMessage('แก้ไขนโยบายสำเร็จ!')
+      router.push('/admin/policies')
+      router.refresh()
     } catch (err: any) {
-      setMessage(`เกิดข้อผิดพลาดในการบันทึก: ${err.message}`);
+      setMessage(`เกิดข้อผิดพลาดในการบันทึก: ${err.message}`)
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -100,13 +96,8 @@ export default function EditPolicyPage({ params }: { params: { id: string } }) {
         <main className="container flex-grow-1 py-4 text-center">
           <p className="text-dark-blue">กำลังโหลดข้อมูลนโยบาย...</p>
         </main>
-        <footer className="footer mt-auto py-3 bg-light border-top">
-          <div className="container text-center text-muted">
-            &copy; {new Date().getFullYear()} Relife Party Admin
-          </div>
-        </footer>
       </div>
-    );
+    )
   }
 
   return (
@@ -152,7 +143,7 @@ export default function EditPolicyPage({ params }: { params: { id: string } }) {
               />
             </div>
             <div className="mb-3">
-              <label htmlFor="imageUrl" className="form-label text-dark-blue">URL รูปภาพ (จาก Google Drive)</label>
+              <label htmlFor="imageUrl" className="form-label text-dark-blue">URL รูปภาพ</label>
               <input
                 type="url"
                 className="form-control"
@@ -195,11 +186,6 @@ export default function EditPolicyPage({ params }: { params: { id: string } }) {
           )}
         </div>
       </main>
-      <footer className="footer mt-auto py-3 bg-light border-top">
-        <div className="container text-center text-muted">
-          &copy; {new Date().getFullYear()} Relife Party Admin
-        </div>
-      </footer>
     </div>
-  );
+  )
 }
