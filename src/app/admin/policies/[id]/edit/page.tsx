@@ -2,23 +2,26 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '../../../../../../utils/supabase/client' // 👈 1. แก้ไข import
-import AdminNavbar from 'src/components/admin/AdminNavbar'
+import { useRouter, useParams } from 'next/navigation' // 👈 1. Import useParams
+import { createClient } from '../../../../../../utils/supabase/client'
+import AdminNavbar from '@/components/admin/AdminNavbar'
 import Link from 'next/link'
 
 interface Policy {
-  id: string
-  title: string
-  content: string
-  status: string
-  publishDate: string
-  imageUrl: string | null
-  created_at: string
+  id: string;
+  title: string;
+  content: string;
+  status: string;
+  publishDate: string;
+  imageUrl: string | null;
+  created_at: string;
 }
 
-export default function EditPolicyPage({ params }: { params: { id: string } }) {
-  const policyId = params.id
+// 2. ไม่ต้องรับ params ผ่าน props แล้ว
+export default function EditPolicyPage() {
+  const params = useParams() // 👈 3. ใช้ hook เพื่อดึง params
+  const policyId = params.id as string // 👈 4. ดึง id ออกมาใช้งาน
+
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [publishDate, setPublishDate] = useState('')
@@ -28,7 +31,7 @@ export default function EditPolicyPage({ params }: { params: { id: string } }) {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const router = useRouter()
-  const supabase = createClient() // 👈 2. แก้ไขการเรียกใช้ฟังก์ชัน
+  const supabase = createClient()
 
   useEffect(() => {
     const fetchPolicy = async () => {
@@ -107,6 +110,7 @@ export default function EditPolicyPage({ params }: { params: { id: string } }) {
         <h1 className="mb-4 text-dark-blue">แก้ไขนโยบาย</h1>
         <div className="card shadow-sm p-4">
           <form onSubmit={handleSubmit}>
+            {/* ... JSX ของฟอร์มเหมือนเดิม ... */}
             <div className="mb-3">
               <label htmlFor="title" className="form-label text-dark-blue">ชื่อนโยบาย</label>
               <input
@@ -170,7 +174,7 @@ export default function EditPolicyPage({ params }: { params: { id: string } }) {
             </div>
             <button
               type="submit"
-              className="btn btn-dark-blue me-2"
+              className="btn btn-primary me-2"
               disabled={submitting}
             >
               {submitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}

@@ -1,187 +1,100 @@
-'use client'
+// src/app/admin/policies/page.tsx
+'use client' // 👈 1. ประกาศให้เป็น Client Component
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '../../../../utils/supabase/client' // 👈 1. แก้ path และชื่อ import
-import AdminNavbar from 'src/components/admin/AdminNavbar'
 import Link from 'next/link'
+import { createClient } from '../../../../utils/supabase/client' // 👈 2. Import จาก client.ts เท่านั้น
+import AdminNavbar from '@/components/admin/AdminNavbar'
+import DeletePolicyButton from '@/components/admin/DeletePolicyButton'
 
-export default function EditPolicyPage({ params }: { params: { id: string } }) {
-  const policyId = params.id
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [publishDate, setPublishDate] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [status, setStatus] = useState('')
+// กำหนด Type ของ Policy
+interface Policy {
+  id: string;
+  title: string;
+  status: string;
+  publishDate: string;
+  imageUrl: string | null;
+  created_at: string;
+}
+
+export default function AdminPoliciesPage() {
+  const [policies, setPolicies] = useState<Policy[]>([])
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState('')
-  const router = useRouter()
-  const supabase = createClient() // 👈 2. แก้ชื่อฟังก์ชันที่เรียกใช้
+  const [error, setError] = useState<string | null>(null)
 
-  // ... โค้ดส่วนที่เหลือเหมือนเดิม
+  // 3. ใช้ useEffect เพื่อดึงข้อมูลหลังจากหน้าเว็บโหลดเสร็จ
   useEffect(() => {
-    const fetchPolicy = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('policies')
-          .select('*')
-          .eq('id', policyId)
-          .single()
-
-        if (error) {
-          throw error
-        }
-
-        if (data) {
-          setTitle(data.title)
-          setContent(data.content)
-          setPublishDate(new Date(data.publishDate).toISOString().split('T')[0] || '')
-          setImageUrl(data.imageUrl || '')
-          setStatus(data.status)
-        }
-      } catch (err: any) {
-        setMessage(`เกิดข้อผิดพลาดในการโหลดนโยบาย: ${err.message}`)
-      } finally {
-        setLoading(false)
-      }
-    };
-
-    if (policyId) {
-      fetchPolicy()
-    }
-  }, [policyId, supabase]);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setMessage('');
-
-    try {
-      const { error } = await supabase
+    const fetchPolicies = async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
         .from('policies')
-        .update({
-          title,
-          content,
-          publishDate: publishDate || null,
-          imageUrl: imageUrl || null,
-          status,
-        })
-        .eq('id', policyId)
-        .select();
+        .select('*')
+        .order('created_at', { ascending: false })
 
       if (error) {
-        throw error;
+        setError(error.message)
+      } else {
+        setPolicies(data)
       }
-
-      setMessage('แก้ไขนโยบายสำเร็จ!');
-      router.push('/admin/policies');
-      router.refresh(); // เพิ่ม refresh
-    } catch (err: any) {
-      setMessage(`เกิดข้อผิดพลาดในการบันทึก: ${err.message}`);
-    } finally {
-      setSubmitting(false);
+      setLoading(false)
     }
-  };
 
-  if (loading) {
-    return (
-        // ... JSX loading เหมือนเดิม
-        <div className="d-flex flex-column min-vh-100 bg-light">
-            <AdminNavbar />
-            <main className="container flex-grow-1 py-4 text-center">
-            <p className="text-dark-blue">กำลังโหลดข้อมูลนโยบาย...</p>
-            </main>
-        </div>
-    )
-  }
+    fetchPolicies()
+  }, [])
 
   return (
-    // ... JSX Form เหมือนเดิม
     <div className="d-flex flex-column min-vh-100 bg-light">
       <AdminNavbar />
       <main className="container flex-grow-1 py-4">
-        <h1 className="mb-4 text-dark-blue">แก้ไขนโยบาย</h1>
-        <div className="card shadow-sm p-4">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="title" className="form-label text-dark-blue">ชื่อนโยบาย</label>
-              <input
-                type="text"
-                className="form-control"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                disabled={submitting}
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="content" className="form-label text-dark-blue">รายละเอียดนโยบาย</label>
-              <textarea
-                className="form-control"
-                id="content"
-                rows={5}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                required
-                disabled={submitting}
-              ></textarea>
-            </div>
-            <div className="mb-3">
-              <label htmlFor="publishDate" className="form-label text-dark-blue">วันที่เผยแพร่</label>
-              <input
-                type="date"
-                className="form-control"
-                id="publishDate"
-                value={publishDate}
-                onChange={(e) => setPublishDate(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="imageUrl" className="form-label text-dark-blue">URL รูปภาพ (จาก Google Drive)</label>
-              <input
-                type="url"
-                className="form-control"
-                id="imageUrl"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="status" className="form-label text-dark-blue">สถานะ</label>
-              <select
-                className="form-select"
-                id="status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                disabled={submitting}
-              >
-                <option value="เสนอแล้ว">เสนอแล้ว</option>
-                <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
-                <option value="สำเร็จ">สำเร็จ</option>
-                <option value="ถูกระงับ">ถูกระงับ</option>
-              </select>
-            </div>
-            <button
-              type="submit"
-              className="btn btn-dark-blue me-2"
-              disabled={submitting}
-            >
-              {submitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
-            </button>
-            <Link href="/admin/policies" className="btn btn-secondary">
-              ยกเลิก
-            </Link>
-          </form>
-          {message && (
-            <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`} role="alert">
-              {message}
-            </div>
-          )}
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h1 className="text-dark-blue">จัดการนโยบาย</h1>
+          <Link href="/admin/policies/create" className="btn btn-primary">
+            + เพิ่มนโยบายใหม่
+          </Link>
         </div>
+
+        {/* 4. แสดงผลตาม State ที่ได้จากการดึงข้อมูล */}
+        {loading ? (
+          <p>กำลังโหลดข้อมูลนโยบาย...</p>
+        ) : error ? (
+          <div className="alert alert-danger">เกิดข้อผิดพลาด: {error}</div>
+        ) : policies.length === 0 ? (
+          <div className="alert alert-info">ยังไม่มีนโยบายในระบบ</div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table table-striped table-hover shadow-sm rounded overflow-hidden">
+              <thead className="bg-primary text-white">
+                <tr>
+                  <th scope="col">ชื่อนโยบาย</th>
+                  <th scope="col">สถานะ</th>
+                  <th scope="col">วันที่เผยแพร่</th>
+                  <th scope="col">สร้างเมื่อ</th>
+                  <th scope="col">การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {policies.map((policy) => (
+                  <tr key={policy.id}>
+                    <td>{policy.title}</td>
+                    <td>
+                      <span className={`badge ${policy.status === 'สำเร็จ' ? 'bg-success' : 'bg-secondary'}`}>
+                        {policy.status}
+                      </span>
+                    </td>
+                    <td>{new Date(policy.publishDate).toLocaleDateString('th-TH')}</td>
+                    <td>{new Date(policy.created_at).toLocaleDateString('th-TH')}</td>
+                    <td>
+                      <Link href={`/admin/policies/${policy.id}/edit`} className="btn btn-info btn-sm me-2">
+                        แก้ไข
+                      </Link>
+                      <DeletePolicyButton policyId={policy.id} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </main>
     </div>
   )
