@@ -39,8 +39,8 @@ export default function HomePage() {
   return (
     <div className="container p-4 mx-auto">
       <header className="py-10 text-center bg-gray-100 rounded-lg">
-        <h1 className="text-4xl font-bold text-gray-800">พรรคคืนชีพ</h1>
-        <p className="mt-4 text-lg text-gray-600">&quot;พรรคการเมืองที่มุ่งมั่นสร้างสรรค์สังคมที่ดีขึ้นสำหรับทุกคน&quot;</p>
+        <h1 className="text-4xl font-bold text-gray-800">Relife Party</h1>
+        <p className="mt-4 text-lg text-gray-600">&quot;สร้างชีวิตใหม่ให้ธรรมศาสตร์&quot;</p>
       </header>
 
       <main className="mt-10">

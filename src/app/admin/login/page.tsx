@@ -1,79 +1,71 @@
 // src/app/admin/login/page.tsx
-'use client'
+import { createClient } from "../../../../utils/supabase/server";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache"; // 1. Import revalidatePath
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '../../../../utils/supabase/client'
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: { message: string };
+}) {
+  const signIn = async (formData: FormData) => {
+    "use server";
 
-export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const supabase = createClient();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-
-    const supabase = createClient()
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-    })
+    });
 
     if (error) {
-      setError(error.message)
-      setLoading(false)
-    } else {
-      // เมื่อล็อกอินสำเร็จ ให้ส่งไปหน้า dashboard โดยตรง
-      // ไม่ต้องใช้ router.refresh() อีกต่อไป
-      router.push('/admin/dashboard')
+      return redirect("/admin/login?message=Could not authenticate user");
     }
-  }
+
+    // 2. เพิ่ม revalidatePath เพื่อสั่งให้ Next.js อัปเดต layout และหน้าต่างๆ ที่เกี่ยวข้อง
+    // ทำให้ layout อ่านสถานะ login ใหม่ก่อนที่จะ redirect
+    revalidatePath("/admin", "layout");
+    
+    return redirect("/admin/dashboard");
+  };
 
   return (
-    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-      <div className="card shadow" style={{ width: '24rem' }}>
-        <div className="card-body p-5">
-          <h3 className="card-title text-center mb-4">Relife Party Admin</h3>
-          <form onSubmit={handleLogin}>
-            <div className="mb-3">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="form-control"
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="form-control"
-              />
-            </div>
-            {error && (
-              <div className="alert alert-danger p-2" role="alert">
-                {error}
-              </div>
-            )}
-            <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-              {loading ? 'Logging in...' : 'Log in'}
-            </button>
-          </form>
-        </div>
-      </div>
+    <div className="flex-1 flex flex-col w-full px-8 sm:max-w-md justify-center gap-2">
+      <form
+        className="flex-1 flex flex-col w-full justify-center gap-2 text-foreground"
+        action={signIn}
+      >
+        <label className="text-md" htmlFor="email">
+          Email
+        </label>
+        <input
+          className="rounded-md px-4 py-2 bg-inherit border mb-6"
+          name="email"
+          placeholder="you@example.com"
+          required
+        />
+        <label className="text-md" htmlFor="password">
+          Password
+        </label>
+        <input
+          className="rounded-md px-4 py-2 bg-inherit border mb-6"
+          type="password"
+          name="password"
+          placeholder="••••••••"
+          required
+        />
+        <button className="bg-green-700 rounded-md px-4 py-2 text-foreground mb-2 text-white">
+          Sign In
+        </button>
+        {searchParams?.message && (
+          <p className="mt-4 p-4 bg-foreground/10 text-foreground text-center">
+            {searchParams.message}
+          </p>
+        )}
+      </form>
     </div>
-  )
+  );
 }
