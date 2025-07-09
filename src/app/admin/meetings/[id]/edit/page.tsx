@@ -1,13 +1,10 @@
-// src/app/admin/meetings/[id]/edit/page.tsx
 'use client'
 
 import { useEffect, useState, useCallback, useId } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { createClient } from '../../../../../../utils/supabase/client'
 import AdminNavbar from '@/components/admin/AdminNavbar'
-import Link from 'next/link'
 
-// --- Define Types ---
 interface Personnel { id: string; name: string; }
 interface Motion {
   id: string; 
@@ -24,13 +21,11 @@ export default function EditMeetingPage() {
   const supabase = createClient()
   const uniqueId = useId();
 
-  // --- State ---
   const [meeting, setMeeting] = useState<{ topic: string, scope: string } | null>(null)
   const [personnel, setPersonnel] = useState<Personnel[]>([])
   const [attendance, setAttendance] = useState<AttendanceMap>({})
   const [motions, setMotions] = useState<Motion[]>([])
   
-  // 👇 New state for collapsible motions
   const [expandedMotionId, setExpandedMotionId] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(true)
@@ -38,7 +33,6 @@ export default function EditMeetingPage() {
   const [message, setMessage] = useState('')
   const [activeTab, setActiveTab] = useState('attendance')
 
-  // --- Data Fetching ---
   const fetchMeetingData = useCallback(async () => {
     if (!meetingId) return;
 
@@ -70,7 +64,6 @@ export default function EditMeetingPage() {
         (votesData || []).forEach(v => { votesMap[v.personnel_id] = v.vote; });
         initialMotions.push({ ...motion, votes: votesMap });
       }
-      // Auto-expand the first motion by default
       setExpandedMotionId(initialMotions[0].id);
     }
     setMotions(initialMotions);
@@ -78,10 +71,9 @@ export default function EditMeetingPage() {
   }, [meetingId, supabase]);
 
   useEffect(() => {
-    fetchMeetingData().catch(err => setMessage(`Error loading data: ${err.message}`)).finally(() => setLoading(false));
+    fetchMeetingData().catch((err: Error) => setMessage(`Error loading data: ${err.message}`)).finally(() => setLoading(false));
   }, [fetchMeetingData]);
 
-  // --- Event Handlers ---
   const handleBulkAttendance = (status: string) => {
     const newAttendance: AttendanceMap = {};
     personnel.forEach(p => { newAttendance[p.id] = status; });
@@ -91,10 +83,10 @@ export default function EditMeetingPage() {
   const addMotion = () => {
     const newId = `temp-${uniqueId}-${motions.length}`;
     setMotions(prev => [...prev, { id: newId, title: '', details: '', proposer_id: null, votes: {} }]);
-    setExpandedMotionId(newId); // Auto-expand the new motion
+    setExpandedMotionId(newId);
   };
 
-  const handleMotionChange = (index: number, field: keyof Motion, value: any) => {
+  const handleMotionChange = (index: number, field: keyof Motion, value: string) => {
     const newMotions = [...motions];
     (newMotions[index] as any)[field] = value;
     setMotions(newMotions);
@@ -106,7 +98,6 @@ export default function EditMeetingPage() {
     setMotions(newMotions);
   };
 
-  // 👇 New handler for bulk voting
   const handleBulkVote = (motionIndex: number, vote: string) => {
     const newMotions = [...motions];
     const newVotes = { ...newMotions[motionIndex].votes };
@@ -118,7 +109,6 @@ export default function EditMeetingPage() {
     setMotions(newMotions);
   };
 
-  // --- Main Save Logic ---
   const handleSubmit = async () => {
     setSaving(true);
     setMessage('');
@@ -146,8 +136,10 @@ export default function EditMeetingPage() {
       }
       setMessage('บันทึกข้อมูลทั้งหมดสำเร็จ!');
       fetchMeetingData();
-    } catch (error: any) {
-      setMessage(`เกิดข้อผิดพลาด: ${error.message}`);
+    } catch (error) {
+      if (error instanceof Error) {
+        setMessage(`เกิดข้อผิดพลาด: ${error.message}`);
+      }
     } finally {
       setSaving(false);
     }
@@ -270,7 +262,7 @@ export default function EditMeetingPage() {
                           </tbody>
                         </table>
                       </>
-                    ) : <p className="text-muted">กรุณาบันทึกสถานะ "เข้าประชุม" ในแท็บแรกก่อน</p>}
+                    ) : <p className="text-muted">กรุณาบันทึกสถานะ &quot;เข้าประชุม&quot; ในแท็บแรกก่อน</p>}
                   </div>
                 )}
               </div>

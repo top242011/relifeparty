@@ -1,4 +1,3 @@
-// src/app/admin/events/[id]/edit/page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -22,8 +21,8 @@ export default function EditEventPage() {
   useEffect(() => {
     const fetchEvent = async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('events') // 👈 เปลี่ยนเป็นตาราง 'events'
+      const { data } = await supabase
+        .from('events')
         .select('*')
         .eq('id', eventId)
         .single()
@@ -36,14 +35,16 @@ export default function EditEventPage() {
       }
       setLoading(false)
     }
-    fetchEvent()
+    if (eventId) {
+        fetchEvent();
+    }
   }, [eventId])
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     const supabase = createClient()
     const { error } = await supabase
-      .from('events') // 👈 เปลี่ยนเป็นตาราง 'events'
+      .from('events')
       .update({
         title,
         description,
@@ -95,3 +96,4 @@ export default function EditEventPage() {
     </div>
   )
 }
+

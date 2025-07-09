@@ -1,5 +1,3 @@
-// src/app/admin/motions/page.tsx
-
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -8,18 +6,17 @@ import { createClient } from '../../../../utils/supabase/client'
 import AdminNavbar from '@/components/admin/AdminNavbar'
 import DeleteButton from '@/components/admin/DeleteButton'
 
-// 1. แก้ไข Type ให้ตรงกับข้อมูลที่ Supabase ส่งมาจริงๆ
-// โดยระบุว่า meetings และ personnel อาจเป็น Array ที่มี Object เดียว
-interface MotionView extends Motion {
-  meetings: { topic: string } | null; // แก้ไข: ให้เป็น Object หรือ null
-  personnel: { name: string } | null; // แก้ไข: ให้เป็น Object หรือ null
-}
-
 interface Motion {
   id: string;
   title: string;
   result: string | null;
   created_at: string;
+}
+
+// This interface now correctly expects meetings and personnel to be single objects or null
+interface MotionView extends Motion {
+  meetings: { topic: string } | null;
+  personnel: { name: string } | null;
 }
 
 export default function AdminMotionsPage() {
@@ -30,7 +27,8 @@ export default function AdminMotionsPage() {
   useEffect(() => {
     const fetchMotions = async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
+      // The select query remains the same
+      const { data, error: fetchError } = await supabase
         .from('motions')
         .select(`
           id,
@@ -42,17 +40,18 @@ export default function AdminMotionsPage() {
         `)
         .order('created_at', { ascending: false })
 
-      if (error) {
-        setError(error.message)
+      if (fetchError) {
+        setError(fetchError.message)
       } else if (data) {
-        // Map meetings and personnel arrays to single object or null
-        setMotions(
-          data.map((motion: any) => ({
-            ...motion,
-            meetings: Array.isArray(motion.meetings) && motion.meetings.length > 0 ? motion.meetings[0] : null,
-            personnel: Array.isArray(motion.personnel) && motion.personnel.length > 0 ? motion.personnel[0] : null,
-          }))
-        )
+        // 👇 **THE FIX IS HERE**
+        // We manually transform the data to match our MotionView interface
+        const transformedData = data.map(motion => ({
+          ...motion,
+          // If meetings/personnel is an array, take the first element, otherwise use it as is (or null)
+          meetings: Array.isArray(motion.meetings) ? motion.meetings[0] || null : motion.meetings,
+          personnel: Array.isArray(motion.personnel) ? motion.personnel[0] || null : motion.personnel,
+        }));
+        setMotions(transformedData)
       }
       setLoading(false)
     }
@@ -90,7 +89,6 @@ export default function AdminMotionsPage() {
                 {motions.map((motion) => (
                   <tr key={motion.id}>
                     <td>{motion.title}</td>
-                    {/* 3. เข้าถึงข้อมูลได้โดยตรง ไม่ต้องใช้ ?.[0] */}
                     <td>{motion.personnel?.name || 'N/A'}</td>
                     <td>
                       <span className={`badge ${motion.result === 'ผ่าน' ? 'bg-success' : motion.result === 'ไม่ผ่าน' ? 'bg-danger' : 'bg-secondary'}`}>

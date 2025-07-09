@@ -1,4 +1,3 @@
-// src/app/admin/committees/[id]/edit/page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -20,7 +19,7 @@ export default function EditCommitteePage() {
   useEffect(() => {
     const fetchCommittee = async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('committees')
         .select('*')
         .eq('id', committeeId)
@@ -32,7 +31,9 @@ export default function EditCommitteePage() {
       }
       setLoading(false)
     }
-    fetchCommittee()
+    if (committeeId) {
+        fetchCommittee();
+    }
   }, [committeeId])
 
   const handleSubmit = async (event: React.FormEvent) => {
