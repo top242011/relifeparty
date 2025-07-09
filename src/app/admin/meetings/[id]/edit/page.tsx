@@ -19,12 +19,12 @@ type MeetingFile = {
     file_url: string;
 };
 
-// FIX: Defined a specific type for the page's props to resolve the build error.
-type EditMeetingPageProps = {
+// FIX: Aligned the props type with Next.js's expected PageProps structure.
+type PageProps = {
     params: { id: string };
 };
 
-export default function EditMeetingPage({ params }: EditMeetingPageProps) {
+export default function EditMeetingPage({ params }: PageProps) {
     const supabase = createClient();
     const router = useRouter();
     const [meeting, setMeeting] = useState<Meeting | null>(null);

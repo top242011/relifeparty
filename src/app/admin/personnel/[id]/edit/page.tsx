@@ -24,12 +24,12 @@ type Committee = {
     name: string;
 };
 
-// FIX: Defined a specific type for the page's props to resolve potential build errors.
-type EditPersonnelPageProps = {
+// FIX: Aligned the props type with Next.js's expected PageProps structure.
+type PageProps = {
     params: { id: string };
 };
 
-export default function EditPersonnelPage({ params }: EditPersonnelPageProps) {
+export default function EditPersonnelPage({ params }: PageProps) {
     const supabase = createClient();
     const router = useRouter();
     const [personnel, setPersonnel] = useState<Personnel | null>(null);

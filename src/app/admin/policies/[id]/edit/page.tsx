@@ -12,12 +12,12 @@ type Policy = {
   created_at: string;
 };
 
-// FIX: Defined a specific type for the page's props to resolve potential build errors.
-type EditPolicyPageProps = {
+// FIX: Aligned the props type with Next.js's expected PageProps structure.
+type PageProps = {
   params: { id: string };
 };
 
-export default function EditPolicyPage({ params }: EditPolicyPageProps) {
+export default function EditPolicyPage({ params }: PageProps) {
   const supabase = createClient();
   const router = useRouter();
   const [policy, setPolicy] = useState<Policy | null>(null);

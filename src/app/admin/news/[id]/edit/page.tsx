@@ -11,12 +11,12 @@ type News = {
   image_url: string;
 };
 
-// FIX: Defined a specific type for the page's props to resolve potential build errors.
-type EditNewsPageProps = {
+// FIX: Aligned the props type with Next.js's expected PageProps structure.
+type PageProps = {
   params: { id: string };
 };
 
-export default function EditNewsPage({ params }: EditNewsPageProps) {
+export default function EditNewsPage({ params }: PageProps) {
   const supabase = createClient();
   const router = useRouter();
   const [news, setNews] = useState<News | null>(null);
