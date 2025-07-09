@@ -1,8 +1,8 @@
 // src/app/admin/motions/[id]/edit/page.tsx
 'use client'
 
-import { useEffect, useState, useCallback, useId } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import { createClient } from '../../../../../../utils/supabase/client'
 import AdminNavbar from '@/components/admin/AdminNavbar'
 import Link from 'next/link'
@@ -11,14 +11,14 @@ import Link from 'next/link'
 interface Voter { id: string; name: string; }
 type VoteMap = { [personnelId: string]: string; };
 
-// 1. สร้าง Type สำหรับข้อมูลที่ Supabase ส่งกลับมาโดยเฉพาะ
-// สังเกตว่า personnel อาจเป็น Array หรือ Object เดียวก็ได้ ขึ้นอยู่กับความสัมพันธ์
+// 1. แก้ไข Type ให้ตรงกับข้อมูลที่ Supabase ส่งกลับมาจริงๆ
+// personnel จะเป็น Array ที่มี Object เดียว
 type AttendeeFromSupabase = {
   personnel_id: string;
   personnel: {
     id: string;
     name: string;
-  } | null; // personnel can be null if the relation is empty
+  }[] | null; // Changed to array of objects
 };
 
 interface Motion {
@@ -26,13 +26,11 @@ interface Motion {
   title: string;
   details: string;
   proposer_id: string | null;
-  votes: { [personnelId: string]: string }; 
 }
 
 export default function EditMotionPage() {
   const params = useParams()
   const motionId = params.id as string
-  const router = useRouter()
   const supabase = createClient()
 
   // --- State ---
@@ -48,7 +46,6 @@ export default function EditMotionPage() {
   const fetchMotionData = useCallback(async () => {
     if (!motionId) return;
 
-    // 1. Fetch motion details and related meeting_id
     const { data: motion, error: motionError } = await supabase
       .from('motions')
       .select('*, meetings(id)')
@@ -56,7 +53,6 @@ export default function EditMotionPage() {
       .single()
     if (motionError) throw motionError;
     
-    // 2. Fetch attendees if the motion is linked to a meeting
     let activeVoters: Voter[] = [];
     if (motion.meeting_id) {
       const { data: attendeesData, error: attendeesError } = await supabase
@@ -66,18 +62,13 @@ export default function EditMotionPage() {
         .eq('status', 'เข้าประชุม');
       if (attendeesError) throw attendeesError;
 
-      // 3. Safely map and filter the data
-      activeVoters = (attendeesData as any[])
-        .map(a => {
-          // If personnel is an array, take the first element; otherwise, use as is
-          const personnel = Array.isArray(a.personnel) ? a.personnel[0] : a.personnel;
-          return personnel;
-        })
-        .filter((p): p is Voter => p !== null && typeof p === 'object' && 'id' in p && 'name' in p);
+      // 2. แก้ไขการ map ข้อมูลให้ถูกต้องและปลอดภัย
+      activeVoters = (attendeesData as AttendeeFromSupabase[])
+        .map(a => a.personnel ? a.personnel[0] : null) // Get the first object from the array
+        .filter((p): p is Voter => p !== null);
     }
     setVoters(activeVoters);
 
-    // 4. Fetch existing votes for this motion
     const { data: votesData, error: votesError } = await supabase
       .from('voting_records')
       .select('personnel_id, vote')
@@ -91,23 +82,21 @@ export default function EditMotionPage() {
     });
     setVotes(initialVotes);
 
-    // 5. Set all motion data at once
     setMotionData({
       id: motion.id,
       title: motion.title,
       details: motion.details || '',
       proposer_id: motion.proposer_id,
-      votes: initialVotes, // We manage votes separately but can init here
     });
 
   }, [motionId, supabase]);
 
   useEffect(() => {
-    fetchMotionData().catch(err => setMessage(`Error loading data: ${err.message}`)).finally(() => setLoading(false));
+    fetchMotionData().catch((err: Error) => setMessage(`Error loading data: ${err.message}`)).finally(() => setLoading(false));
   }, [fetchMotionData]);
 
   // --- Event Handlers ---
-  const handleMotionChange = (field: keyof Motion, value: any) => {
+  const handleMotionChange = (field: keyof Motion, value: string) => {
     setMotionData(prev => prev ? { ...prev, [field]: value } : null);
   };
   
@@ -121,10 +110,8 @@ export default function EditMotionPage() {
     setSaving(true);
     setMessage('');
     try {
-      // Update motion details
       await supabase.from('motions').update({ title: motionData.title, details: motionData.details }).eq('id', motionId);
 
-      // Upsert votes
       const votesToUpsert = Object.entries(votes).map(([personnel_id, vote]) => ({
         motion_id: motionId,
         personnel_id,
@@ -134,8 +121,10 @@ export default function EditMotionPage() {
         await supabase.from('voting_records').upsert(votesToUpsert, { onConflict: 'motion_id,personnel_id' });
       }
       setMessage('บันทึกข้อมูลทั้งหมดสำเร็จ!');
-    } catch (error: any) {
-      setMessage(`เกิดข้อผิดพลาด: ${error.message}`);
+    } catch (error) {
+      if (error instanceof Error) {
+        setMessage(`เกิดข้อผิดพลาด: ${error.message}`);
+      }
     } finally {
       setSaving(false);
     }
