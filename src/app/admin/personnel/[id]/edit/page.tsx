@@ -7,7 +7,6 @@ import { createClient } from '../../../../../../utils/supabase/client'
 import AdminNavbar from '@/components/admin/AdminNavbar'
 import Link from 'next/link'
 
-// Define types
 interface Committee {
   id: string;
   name: string;
@@ -19,25 +18,22 @@ export default function EditPersonnelPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // State for personnel data
   const [name, setName] = useState('')
   const [position, setPosition] = useState('')
   const [bio, setBio] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [isActive, setIsActive] = useState(true)
+  const [role, setRole] = useState('MP')
+  const [campus, setCampus] = useState('Rangsit')
 
-  // State for committee management
   const [allCommittees, setAllCommittees] = useState<Committee[]>([])
   const [selectedCommittees, setSelectedCommittees] = useState<Set<string>>(new Set())
-
-  // Loading and message state
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
   const fetchPersonnelData = useCallback(async () => {
     if (!personnelId) return;
 
-    // Fetch personnel details
     const { data: person, error: personError } = await supabase
       .from('personnel')
       .select('*')
@@ -51,22 +47,14 @@ export default function EditPersonnelPage() {
     setBio(person.bio || '')
     setImageUrl(person.image_url || '')
     setIsActive(person.is_active)
+    setRole(person.role || 'MP')
+    setCampus(person.campus || 'Rangsit')
 
-    // Fetch all available committees
-    const { data: committeesData, error: committeesError } = await supabase
-      .from('committees')
-      .select('id, name')
-    if (committeesError) throw committeesError;
-    setAllCommittees(committeesData)
+    const { data: committeesData } = await supabase.from('committees').select('id, name')
+    setAllCommittees(committeesData || [])
 
-    // Fetch current committee assignments for this person
-    const { data: assignments, error: assignmentsError } = await supabase
-      .from('committee_assignments')
-      .select('committee_id')
-      .eq('personnel_id', personnelId)
-    if (assignmentsError) throw assignmentsError;
-    
-    setSelectedCommittees(new Set(assignments.map(a => a.committee_id)))
+    const { data: assignments } = await supabase.from('committee_assignments').select('committee_id').eq('personnel_id', personnelId)
+    setSelectedCommittees(new Set((assignments || []).map(a => a.committee_id)))
 
   }, [personnelId, supabase]);
 
@@ -95,37 +83,32 @@ export default function EditPersonnelPage() {
     setMessage('')
 
     try {
-      // 1. Update personnel table
+      // 👇 1. เพิ่มตรรกะตรวจสอบค่าว่าง
+      const finalPosition = position.trim() === '' ? '-' : position;
+
       const { error: updateError } = await supabase
         .from('personnel')
         .update({
           name,
-          position,
+          position: finalPosition, // 👈 2. ใช้ค่าที่ผ่านการตรวจสอบแล้ว
           bio,
           image_url: imageUrl || null,
           is_active: isActive,
+          role,
+          campus,
         })
         .eq('id', personnelId)
       if (updateError) throw updateError;
 
-      // 2. Delete all existing assignments for this person
-      const { error: deleteError } = await supabase
-        .from('committee_assignments')
-        .delete()
-        .eq('personnel_id', personnelId)
-      if (deleteError) throw deleteError;
+      await supabase.from('committee_assignments').delete().eq('personnel_id', personnelId)
 
-      // 3. Insert new assignments
       const newAssignments = Array.from(selectedCommittees).map(committee_id => ({
         personnel_id: personnelId,
         committee_id,
       }))
 
       if (newAssignments.length > 0) {
-        const { error: insertError } = await supabase
-          .from('committee_assignments')
-          .insert(newAssignments)
-        if (insertError) throw insertError;
+        await supabase.from('committee_assignments').insert(newAssignments)
       }
 
       setMessage('บันทึกข้อมูลสำเร็จ!')
@@ -156,9 +139,29 @@ export default function EditPersonnelPage() {
                   <input type="text" className="form-control" id="name" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="position" className="form-label">ตำแหน่ง</label>
-                  <input type="text" className="form-control" id="position" value={position} onChange={(e) => setPosition(e.target.value)} />
+                  <label htmlFor="position" className="form-label">ตำแหน่งในพรรค</label>
+                  <input type="text" className="form-control" id="position" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="เช่น สมาชิกพรรค (ถ้าว่างจะแสดงเป็น -)" />
                 </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="role" className="form-label">บทบาท</label>
+                    <select id="role" className="form-select" value={role} onChange={(e) => setRole(e.target.value)}>
+                      <option value="MP">ส.ส.</option>
+                      <option value="Executive">กรรมการบริหาร</option>
+                      <option value="Both">เป็นทั้งสองอย่าง</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="campus" className="form-label">สังกัดศูนย์</label>
+                    <select id="campus" className="form-select" value={campus} onChange={(e) => setCampus(e.target.value)}>
+                      <option value="Rangsit">รังสิต</option>
+                      <option value="Tha Prachan">ท่าพระจันทร์</option>
+                      <option value="Lampang">ลำปาง</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="mb-3">
                   <label htmlFor="bio" className="form-label">ประวัติโดยย่อ</label>
                   <textarea className="form-control" id="bio" rows={4} value={bio} onChange={(e) => setBio(e.target.value)}></textarea>

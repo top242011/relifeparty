@@ -24,35 +24,20 @@ export default function AdminNavbar() {
         </button>
         <div className="collapse navbar-collapse" id="navbarNavAdmin">
           <ul className="navbar-nav ms-auto">
-            <li className="nav-item">
-              <Link href="/admin/dashboard" className="nav-link">
-                Dashboard
-              </Link>
-            </li>
+            <li className="nav-item"><Link href="/admin/dashboard" className="nav-link">Dashboard</Link></li>
+            <li className="nav-item"><Link href="/admin/personnel" className="nav-link">จัดการบุคลากร</Link></li>
+            <li className="nav-item"><Link href="/admin/committees" className="nav-link">จัดการ กมธ.</Link></li>
+            <li className="nav-item"><Link href="/admin/meetings" className="nav-link">จัดการประชุม</Link></li>
             <li className="nav-item">
               {/* 👈 เพิ่มลิงก์นี้ */}
-              <Link href="/admin/personnel" className="nav-link">
-                จัดการบุคลากร
+              <Link href="/admin/motions" className="nav-link">
+                จัดการญัตติ
               </Link>
             </li>
-            <li className="nav-item">
-              <Link href="/admin/policies" className="nav-link">
-                จัดการนโยบาย
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link href="/admin/news" className="nav-link">
-                จัดการข่าวสาร
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link href="/admin/events" className="nav-link">
-                จัดการกิจกรรม
-              </Link>
-            </li>
-            <li className="nav-item">
-              <LogoutButton />
-            </li>
+            <li className="nav-item"><Link href="/admin/policies" className="nav-link">จัดการนโยบาย</Link></li>
+            <li className="nav-item"><Link href="/admin/news" className="nav-link">จัดการข่าวสาร</Link></li>
+            <li className="nav-item"><Link href="/admin/events" className="nav-link">จัดการกิจกรรม</Link></li>
+            <li className="nav-item"><LogoutButton /></li>
           </ul>
         </div>
       </div>
