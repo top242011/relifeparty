@@ -5,6 +5,34 @@ import { createSupabaseServerClient } from 'utils/supabase/server';
 import AdminNavbar from 'src/components/admin/AdminNavbar';
 import Link from 'next/link';
 
+// src/app/admin/dashboard/page.tsx
+import { createClient } from '@/utils/supabase/server' // 👈 1. Import ฟังก์ชันที่ถูกต้อง
+import { redirect } from 'next/navigation'
+import AdminNavbar from '@/components/admin/AdminNavbar' // ใช้ Path Alias เพื่อความสะอาด
+import Link from 'next/link'
+
+export default async function AdminDashboardPage() {
+  const supabase = createClient() // 👈 2. เรียกใช้ฟังก์ชันที่ถูกต้อง
+
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user) {
+    redirect('/admin/login')
+  }
+
+  return (
+    <div className="d-flex flex-column min-vh-100 bg-light">
+      <AdminNavbar />
+      <main className="container flex-grow-1 py-4">
+        <h1 className="mb-4 text-dark-blue">Admin Dashboard</h1>
+        <p className="mt-4 text-dark-blue">
+          ยินดีต้อนรับ, {data.user.email}!
+        </p>
+        <p>คุณเข้าสู่ระบบสำเร็จแล้ว!</p>
+      </main>
+    </div>
+  )
+}
+
 export default async function AdminDashboardPage() {
   // 🔽 2. เปลี่ยนชื่อฟังก์ชันที่เรียกใช้ และส่ง true เพื่อบอกว่าเป็นโหมดอ่านอย่างเดียว
   const supabase = createSupabaseServerClient(true);
