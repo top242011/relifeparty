@@ -1,96 +1,71 @@
-// src/app/page.tsx
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { createClient } from '../../utils/supabase/client' // 👈 1. แก้ไข import
+import { useState, useEffect } from 'react';
+import { createClient } from '../../utils/supabase/client';
+import Link from 'next/link';
 
-interface Policy {
-  id: string
-  title: string
-  content: string
-  status: string
+// FIX: Defined a specific type for news articles instead of using 'any[]'.
+interface NewsArticle {
+  id: string;
+  title: string;
+  content: string;
+  image_url: string;
+  created_at: string;
 }
 
-export default function Home() {
-  const [policies, setPolicies] = useState<Policy[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default function HomePage() {
+  const supabase = createClient();
+  // FIX: Used the NewsArticle[] type for the state.
+  const [news, setNews] = useState<NewsArticle[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchPolicies = async () => {
-      const supabase = createClient() // 👈 2. แก้ไขการเรียกใช้ฟังก์ชัน
-      try {
-        const { data, error } = await supabase
-          .from('policies')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(3)
-
-        if (error) {
-          throw error
-        }
-        setPolicies(data || [])
-      } catch (err: any) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
+    const fetchNews = async () => {
+      const { data, error } = await supabase
+        .from('news')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      if (error) {
+        console.error('Error fetching news:', error);
+      } else {
+        setNews(data);
       }
-    }
-
-    fetchPolicies()
-  }, [])
+      setLoading(false);
+    };
+    fetchNews();
+  }, [supabase]);
 
   return (
-    <div className="d-flex flex-column align-items-center justify-content-center min-vh-100 bg-gradient-primary-secondary text-white p-4">
-      <h1 className="display-3 display-md-1 fw-bold mb-4 text-center">
-        Relife Party
-      </h1>
-      <p className="fs-4 fs-md-3 mb-5 text-center">
-        "สร้างชีวิตใหม่ให้ธรรมศาสตร์"
-      </p>
-      <div className="bg-white text-dark-blue p-5 rounded shadow-lg text-center" style={{ maxWidth: '400px', width: '100%' }}>
-        <h2 className="h2 fw-semibold mb-4">ยินดีต้อนรับ</h2>
-        <p className="fs-5">
-          แพลตฟอร์ม Open Data เพื่อความโปร่งใสในการทำงานของพรรค
-        </p>
-        <p className="fs-5 mt-2">
-          สำรวจนโยบาย ข่าวสาร และผลงานของเราได้ที่นี่
-        </p>
-        <div className="mt-4">
-          <a
-            href="/policies"
-            className="btn btn-dark-blue px-4 py-2 rounded me-3"
-          >
-            ดูนโยบาย
-          </a>
-          <a
-            href="/news"
-            className="btn btn-dark-blue px-4 py-2 rounded"
-          >
-            อ่านข่าวสาร
-          </a>
-        </div>
-      </div>
+    <div className="container p-4 mx-auto">
+      <header className="py-10 text-center bg-gray-100 rounded-lg">
+        <h1 className="text-4xl font-bold text-gray-800">พรรคคืนชีพ</h1>
+        {/* FIX: Escaped double quotes to prevent JSX parsing errors. */}
+        <p className="mt-4 text-lg text-gray-600">&quot;พรรคการเมืองที่มุ่งมั่นสร้างสรรค์สังคมที่ดีขึ้นสำหรับทุกคน&quot;</p>
+      </header>
 
-      <div className="mt-5 text-dark-blue bg-white p-4 rounded shadow-lg" style={{ maxWidth: '600px', width: '100%' }}>
-        <h3 className="h3 fw-semibold mb-3">นโยบายล่าสุด (จาก Supabase)</h3>
-        {loading && <p>กำลังโหลดนโยบาย...</p>}
-        {error && <p className="text-danger">เกิดข้อผิดพลาด: {error}</p>}
-        {!loading && policies.length === 0 && !error && <p>ยังไม่มีนโยบาย</p>}
-        {!loading && policies.length > 0 && (
-          <ul className="list-group">
-            {policies.map((policy) => (
-              <li key={policy.id} className="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                  <h5 className="mb-1">{policy.title}</h5>
-                  <small className="text-muted">สถานะ: {policy.status}</small>
+      <main className="mt-10">
+        <h2 className="mb-6 text-3xl font-bold text-center">ข่าวสารล่าสุด</h2>
+        {loading ? (
+          <div className="text-center">Loading news...</div>
+        ) : (
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {news.map((item) => (
+              <div key={item.id} className="overflow-hidden bg-white rounded-lg shadow-lg">
+                <img src={item.image_url} alt={item.title} className="object-cover w-full h-48" />
+                <div className="p-6">
+                  <h3 className="mb-2 text-xl font-bold">{item.title}</h3>
+                  <p className="text-gray-700">{item.content.substring(0, 100)}...</p>
+                  <Link href={`/news/${item.id}`} className="inline-block mt-4 font-bold text-blue-600 hover:underline">
+                    อ่านต่อ
+                  </Link>
                 </div>
-                <span className="badge bg-primary rounded-pill">ดูรายละเอียด</span>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
-      </div>
+      </main>
     </div>
-  )
+  );
 }

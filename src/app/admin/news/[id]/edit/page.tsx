@@ -1,97 +1,140 @@
-// src/app/admin/news/[id]/edit/page.tsx
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { createClient } from '../../../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
-import Link from 'next/link'
+import { useState, useEffect } from 'react';
+import { createClient } from '../../../../../../utils/supabase/client';
+import { useRouter } from 'next/navigation';
 
-export default function EditNewsPage() {
-  const params = useParams()
-  const newsId = params.id as string
+type News = {
+  title: string;
+  content: string;
+  image_url: string;
+};
 
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [publishDate, setPublishDate] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
-  const router = useRouter()
+export default function EditNewsPage({ params }: { params: { id: string } }) {
+  const supabase = createClient();
+  const router = useRouter();
+  const [news, setNews] = useState<News | null>(null);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchNews = async () => {
-      const supabase = createClient()
       const { data, error } = await supabase
-        .from('news') // 👈 เปลี่ยนเป็นตาราง 'news'
+        .from('news')
         .select('*')
-        .eq('id', newsId)
-        .single()
-
-      if (data) {
-        setTitle(data.title)
-        setContent(data.content)
-        setPublishDate(data.publishDate ? new Date(data.publishDate).toISOString().split('T')[0] : '')
-        setImageUrl(data.imageUrl || '')
+        .eq('id', params.id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching news:', error);
+        // Handle error display to user
+      } else if (data) {
+        setNews(data);
+        setTitle(data.title);
+        setContent(data.content);
       }
-      setLoading(false)
+      setLoading(false);
+    };
+    fetchNews();
+  }, [params.id, supabase]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFile(e.target.files[0]);
     }
-    fetchNews()
-  }, [newsId])
+  };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('news') // 👈 เปลี่ยนเป็นตาราง 'news'
-      .update({
-        title,
-        content,
-        publishDate,
-        imageUrl,
-      })
-      .eq('id', newsId)
+  const handleFileUpload = async (fileToUpload: File) => {
+    const filePath = `news/${Date.now()}_${fileToUpload.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from('news-images')
+      .upload(filePath, fileToUpload);
 
-    if (error) {
-      setMessage(`เกิดข้อผิดพลาด: ${error.message}`)
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from('news-images').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!news) return;
+
+    let imageUrl = news.image_url;
+
+    if (file) {
+      try {
+        imageUrl = await handleFileUpload(file);
+      } catch (error) {
+        alert('Failed to upload image. Please try again.');
+        return;
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from('news')
+      .update({ title, content, image_url: imageUrl })
+      .eq('id', params.id);
+
+    // FIX: Added error handling for the unused 'error' variable.
+    if (updateError) {
+      console.error('Error updating news:', updateError);
+      alert('Failed to update news: ' + updateError.message);
     } else {
-      setMessage('แก้ไขข่าวสารสำเร็จ!')
-      router.push('/admin/news')
-      router.refresh()
+      router.push('/admin/news');
+      router.refresh();
     }
+  };
+
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
-  if (loading) return <p>กำลังโหลดข้อมูล...</p>
+  if (!news) {
+    return <div>News not found.</div>;
+  }
 
   return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
-      <main className="container flex-grow-1 py-4">
-        <h1 className="mb-4 text-dark-blue">แก้ไขข่าวสาร</h1>
-        <div className="card shadow-sm p-4">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="title" className="form-label">หัวข้อข่าว</label>
-              <input type="text" className="form-control" id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="content" className="form-label">เนื้อหาข่าว</label>
-              <textarea className="form-control" id="content" rows={5} value={content} onChange={(e) => setContent(e.target.value)} required></textarea>
-            </div>
-            <div className="mb-3">
-              <label htmlFor="publishDate" className="form-label">วันที่เผยแพร่</label>
-              <input type="date" className="form-control" id="publishDate" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} required />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="imageUrl" className="form-label">URL รูปภาพ (ถ้ามี)</label>
-              <input type="url" className="form-control" id="imageUrl" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
-            </div>
-            <button type="submit" className="btn btn-primary me-2">บันทึกการแก้ไข</button>
-            <Link href="/admin/news" className="btn btn-secondary">ยกเลิก</Link>
-          </form>
-          {message && <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`}>{message}</div>}
+    <div className="container p-4 mx-auto">
+      <h1 className="mb-4 text-2xl font-bold">Edit News</h1>
+      <form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow-md">
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-bold text-gray-700">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+            required
+          />
         </div>
-      </main>
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-bold text-gray-700">Content</label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="w-full h-32 px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-bold text-gray-700">Image</label>
+          {news.image_url && <img src={news.image_url} alt={title} className="w-32 h-32 mb-4" />}
+          <input
+            type="file"
+            onChange={handleFileChange}
+            className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+          />
+        </div>
+        <button type="submit" className="px-4 py-2 font-bold text-white bg-blue-500 rounded hover:bg-blue-700 focus:outline-none focus:shadow-outline">
+          Update News
+        </button>
+      </form>
     </div>
-  )
+  );
 }

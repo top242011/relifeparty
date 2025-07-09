@@ -1,21 +1,23 @@
-// src/components/admin/LogoutButton.tsx
-'use client'
+'use client';
 
-import { useRouter } from 'next/navigation'
-import { createClient } from '../../../utils/supabase/client'
+import { createClient } from '../../../utils/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export default function LogoutButton() {
-  const router = useRouter()
+  // FIX: The 'router' variable is now used to redirect the user after logout.
+  const router = useRouter();
+  const supabase = createClient();
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    // ไม่ต้องทำอะไรเพิ่ม เพราะ AuthLayout จะจัดการ redirect ให้เอง
-  }
+    await supabase.auth.signOut();
+    // Redirect to the login page and refresh the application state
+    router.push('/admin/login');
+    router.refresh();
+  };
 
   return (
-    <button className="btn btn-outline-light ms-2" onClick={handleLogout}>
-      ออกจากระบบ
+    <button onClick={handleLogout} className="px-4 py-2 text-white bg-red-500 rounded hover:bg-red-600">
+      Logout
     </button>
-  )
+  );
 }

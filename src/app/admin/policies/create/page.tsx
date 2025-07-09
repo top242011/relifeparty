@@ -1,149 +1,104 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '../../../../../utils/supabase/client' // 👈 1. แก้ path และชื่อ import
-import AdminNavbar from 'src/components/admin/AdminNavbar'
-import Link from 'next/link'
+import { useState } from 'react';
+import { createClient } from '../../../../../utils/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export default function CreatePolicyPage() {
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [publishDate, setPublishDate] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [status, setStatus] = useState('เสนอแล้ว')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
-  const router = useRouter()
+  const supabase = createClient();
+  const router = useRouter();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [file, setFile] = useState<File | null>(null);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    setLoading(true)
-    setMessage('')
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFile(e.target.files[0]);
+    }
+  };
 
-    const supabase = createClient() // 👈 2. แก้ชื่อฟังก์ชันที่เรียกใช้
+  const handleFileUpload = async (fileToUpload: File): Promise<string> => {
+    const filePath = `policies/${Date.now()}_${fileToUpload.name}`;
+    const { error } = await supabase.storage
+      .from('policy-files')
+      .upload(filePath, fileToUpload);
+    
+    if (error) {
+        console.error('Upload error:', error.message);
+        throw error;
+    }
 
-    // ... โค้ดส่วนที่เหลือเหมือนเดิม
+    const { data } = supabase.storage.from('policy-files').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
+  // FIX: Changed event type from 'any' to a specific React FormEvent type.
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!file) {
+      alert('Please select a file to upload.');
+      return;
+    }
+
     try {
+      const fileUrl = await handleFileUpload(file);
       const { error } = await supabase
         .from('policies')
-        .insert([
-          {
-            title,
-            content,
-            publishDate: publishDate || null,
-            imageUrl: imageUrl || null,
-            status,
-          },
-        ])
-        .select()
+        .insert([{ title, description, file_url: fileUrl }]);
 
       if (error) {
-        throw error
+        throw error;
       }
 
-      setMessage('เพิ่มนโยบายสำเร็จ!')
-      router.push('/admin/policies')
-      router.refresh() // เพิ่ม refresh เพื่อให้หน้า list อัปเดต
-    } catch (err: any) {
-      setMessage(`เกิดข้อผิดพลาด: ${err.message}`)
-    } finally {
-      setLoading(false)
+      router.push('/admin/policies');
+      router.refresh();
+
+    } catch (error) {
+      console.error('Error creating policy:', error);
+      if (error instanceof Error) {
+        alert('Failed to create policy: ' + error.message);
+      } else {
+        alert('An unknown error occurred.');
+      }
     }
   };
 
   return (
-    // ... JSX เหมือนเดิม
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
-      <main className="container flex-grow-1 py-4">
-        <h1 className="mb-4 text-dark-blue">เพิ่มนโยบายใหม่</h1>
-        <div className="card shadow-sm p-4">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="title" className="form-label text-dark-blue">ชื่อนโยบาย</label>
-              <input
-                type="text"
-                className="form-control"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                disabled={loading}
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="content" className="form-label text-dark-blue">รายละเอียดนโยบาย</label>
-              <textarea
-                className="form-control"
-                id="content"
-                rows={5}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                required
-                disabled={loading}
-              ></textarea>
-            </div>
-            <div className="mb-3">
-              <label htmlFor="publishDate" className="form-label text-dark-blue">วันที่เผยแพร่</label>
-              <input
-                type="date"
-                className="form-control"
-                id="publishDate"
-                value={publishDate}
-                onChange={(e) => setPublishDate(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="imageUrl" className="form-label text-dark-blue">URL รูปภาพ (จาก Google Drive)</label>
-              <input
-                type="url"
-                className="form-control"
-                id="imageUrl"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="status" className="form-label text-dark-blue">สถานะ</label>
-              <select
-                className="form-select"
-                id="status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                disabled={loading}
-              >
-                <option value="เสนอแล้ว">เสนอแล้ว</option>
-                <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
-                <option value="สำเร็จ">สำเร็จ</option>
-                <option value="ถูกระงับ">ถูกระงับ</option>
-              </select>
-            </div>
-            <button
-              type="submit"
-              className="btn btn-dark-blue me-2"
-              disabled={loading}
-            >
-              {loading ? 'กำลังบันทึก...' : 'บันทึกนโยบาย'}
-            </button>
-            <Link href="/admin/policies" className="btn btn-secondary">
-              ยกเลิก
-            </Link>
-          </form>
-          {message && (
-            <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`} role="alert">
-              {message}
-            </div>
-          )}
+    <div className="container p-4 mx-auto">
+      <h1 className="mb-4 text-2xl font-bold">Create New Policy</h1>
+      <form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow-md">
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-bold text-gray-700">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+            required
+          />
         </div>
-      </main>
-      <footer className="footer mt-auto py-3 bg-light border-top">
-        <div className="container text-center text-muted">
-          &copy; {new Date().getFullYear()} Relife Party Admin
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-bold text-gray-700">Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+            required
+          />
         </div>
-      </footer>
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-bold text-gray-700">File</label>
+          <input
+            type="file"
+            onChange={handleFileChange}
+            className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+            required
+          />
+        </div>
+        <button type="submit" className="px-4 py-2 font-bold text-white bg-blue-500 rounded hover:bg-blue-700 focus:outline-none focus:shadow-outline">
+          Create Policy
+        </button>
+      </form>
     </div>
-  )
+  );
 }

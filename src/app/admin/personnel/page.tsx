@@ -1,98 +1,58 @@
-// src/app/admin/personnel/page.tsx
-'use client'
+'use client';
 
-import { useEffect, useState, useMemo } from 'react'
-import Link from 'next/link'
-import { createClient } from '../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
-import DeleteButton from '@/components/admin/DeleteButton'
+import { useState, useEffect, useMemo } from 'react';
+import { createClient } from '../../../../utils/supabase/client';
+import Link from 'next/link';
+// FIX: Imported the next/image component
+import Image from 'next/image';
+import DeleteButton from '@/components/admin/DeleteButton';
 
-// --- Types ---
-interface Personnel {
+type Personnel = {
   id: string;
   name: string;
   position: string;
-  is_active: boolean;
-  image_url: string | null;
-  role: string;
-  campus: string;
-}
-
-type SortKey = keyof Personnel | 'name';
-type SortDirection = 'ascending' | 'descending';
-
-interface SortConfig {
-  key: SortKey;
-  direction: SortDirection;
-}
-
-// --- Helper Components ---
-const SortableHeader = ({
-  label,
-  sortKey,
-  sortConfig,
-  requestSort,
-}: {
-  label: string;
-  sortKey: SortKey;
-  sortConfig: SortConfig | null;
-  requestSort: (key: SortKey) => void;
-}) => {
-  const isSorted = sortConfig?.key === sortKey;
-  const icon = isSorted ? (sortConfig.direction === 'ascending' ? 'bi-sort-up' : 'bi-sort-down') : 'bi-filter';
-
-  return (
-    <th onClick={() => requestSort(sortKey)} style={{ cursor: 'pointer' }}>
-      {label} <i className={`bi ${icon} ms-1`}></i>
-    </th>
-  );
+  image_url: string;
+  created_at: string;
 };
 
+type SortConfig = {
+  key: keyof Personnel | null;
+  direction: 'ascending' | 'descending';
+};
 
-export default function AdminPersonnelPage() {
-  const [personnel, setPersonnel] = useState<Personnel[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
-  // --- Sorting State ---
-  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'name', direction: 'ascending' });
+export default function PersonnelPage() {
+  const supabase = createClient();
+  const [personnel, setPersonnel] = useState<Personnel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
   useEffect(() => {
     const fetchPersonnel = async () => {
-      const supabase = createClient()
       const { data, error } = await supabase
         .from('personnel')
         .select('*')
-        .order('name', { ascending: true })
-
+        .order('created_at', { ascending: false });
+      
       if (error) {
-        setError(error.message)
+        console.error('Error fetching personnel:', error);
       } else {
-        setPersonnel(data)
+        setPersonnel(data);
       }
-      setLoading(false)
-    }
+      setLoading(false);
+    };
+    fetchPersonnel();
+  }, [supabase]);
 
-    fetchPersonnel()
-  }, [])
-
-  // --- Sorting Logic ---
-  const sortedPersonnel = useMemo(() => {
-    let sortableItems = [...personnel];
-    if (sortConfig !== null) {
+  const sortedItems = useMemo(() => {
+    // FIX: Changed 'let' to 'const' as sortableItems is not reassigned.
+    const sortableItems = [...personnel];
+    if (sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
-        // 👇 1. เพิ่มการตรวจสอบที่นี่เพื่อความปลอดภัย
-        // แม้ว่าเราจะเช็คไปแล้ว แต่การเช็คใน scope นี้จะทำให้ TypeScript มั่นใจ
-        if (!sortConfig) return 0;
-
-        // 👇 2. ดึงค่าออกมาใส่ตัวแปรเพื่อความสะอาดและจัดการค่า null
-        const valA = a[sortConfig.key] ?? ''; // ถ้าค่าเป็น null ให้ใช้ string ว่างแทน
-        const valB = b[sortConfig.key] ?? '';
-
-        if (valA < valB) {
+        const key = sortConfig.key as keyof Personnel;
+        if (a[key]! < b[key]!) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
-        if (valA > valB) {
+        if (a[key]! > b[key]!) {
           return sortConfig.direction === 'ascending' ? 1 : -1;
         }
         return 0;
@@ -101,86 +61,77 @@ export default function AdminPersonnelPage() {
     return sortableItems;
   }, [personnel, sortConfig]);
 
-  const requestSort = (key: SortKey) => {
-    let direction: SortDirection = 'ascending';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+  const requestSort = (key: keyof Personnel) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
     }
     setSortConfig({ key, direction });
   };
 
-  const getRoleBadge = (role: string) => {
-    switch(role) {
-      case 'Executive': return <span className="badge bg-info text-dark">กก.บห.</span>;
-      case 'MP': return <span className="badge bg-warning text-dark">ส.ส.</span>;
-      case 'Both': return <><span className="badge bg-info text-dark">กก.บห.</span> <span className="badge bg-warning text-dark">ส.ส.</span></>;
-      default: return null;
+  const getSortIndicator = (key: keyof Personnel) => {
+    if (sortConfig.key !== key) {
+      return '';
     }
+    return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+  };
+
+
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
   return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
-      <main className="container flex-grow-1 py-4">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h1 className="text-dark-blue">จัดการบุคลากร</h1>
-          <Link href="/admin/personnel/create" className="btn btn-primary">
-            + เพิ่มบุคลากรใหม่
-          </Link>
-        </div>
-
-        {loading ? (
-          <p>กำลังโหลดข้อมูลบุคลากร...</p>
-        ) : error ? (
-          <div className="alert alert-danger">เกิดข้อผิดพลาด: {error}</div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-hover align-middle">
-              <thead className="table-light">
-                <tr>
-                  <th style={{ width: '10%' }}>รูปภาพ</th>
-                  <SortableHeader label="ชื่อ-นามสกุล" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} />
-                  <SortableHeader label="ตำแหน่ง" sortKey="position" sortConfig={sortConfig} requestSort={requestSort} />
-                  <SortableHeader label="บทบาท / ศูนย์" sortKey="role" sortConfig={sortConfig} requestSort={requestSort} />
-                  <SortableHeader label="สถานะ" sortKey="is_active" sortConfig={sortConfig} requestSort={requestSort} />
-                  <th className="text-end">การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody>{sortedPersonnel.map((person) => (
-                  <tr key={person.id}>
-                    <td>
-                      <img 
-                        src={person.image_url || `https://placehold.co/60x60/EFEFEF/AAAAAA&text=No+Image`} 
-                        alt={person.name} 
-                        className="rounded-circle"
-                        width="50"
-                        height="50"
-                        style={{ objectFit: 'cover' }}
-                      />
-                    </td>
-                    <td>{person.name}</td>
-                    <td>{person.position}</td>
-                    <td>
-                      <div>{getRoleBadge(person.role)}</div>
-                      <small className="text-muted">{person.campus}</small>
-                    </td>
-                    <td>
-                      <span className={`badge ${person.is_active ? 'bg-success' : 'bg-secondary'}`}>
-                        {person.is_active ? 'ดำรงตำแหน่ง' : 'พ้นจากตำแหน่ง'}
-                      </span>
-                    </td>
-                    <td className="text-end">
-                      <Link href={`/admin/personnel/${person.id}/edit`} className="btn btn-info btn-sm me-2">
-                        แก้ไข
-                      </Link>
-                      <DeleteButton recordId={person.id} tableName="personnel" />
-                    </td>
-                  </tr>
-                ))}</tbody>
-            </table>
-          </div>
-        )}
-      </main>
+    <div className="container p-4 mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Manage Personnel</h1>
+        <Link href="/admin/personnel/create" className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
+          Add New Personnel
+        </Link>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white">
+          <thead>
+            <tr>
+              <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">
+                <button onClick={() => requestSort('name')}>
+                  Name {getSortIndicator('name')}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">
+                <button onClick={() => requestSort('position')}>
+                  Position {getSortIndicator('position')}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedItems.map((person) => (
+              <tr key={person.id}>
+                <td className="flex items-center px-6 py-4 whitespace-nowrap">
+                  {/* FIX: Replaced <img> with next/image <Image> for optimization */}
+                  <Image
+                    src={person.image_url || '/default-avatar.png'}
+                    alt={person.name}
+                    width={40}
+                    height={40}
+                    className="object-cover w-10 h-10 rounded-full"
+                  />
+                  <span className="ml-4">{person.name}</span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">{person.position}</td>
+                <td className="flex px-6 py-4 space-x-2 whitespace-nowrap">
+                  <Link href={`/admin/personnel/${person.id}/edit`} className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
+                    Edit
+                  </Link>
+                  <DeleteButton recordId={person.id} tableName="personnel" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
-  )
+  );
 }

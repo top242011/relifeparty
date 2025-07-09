@@ -1,213 +1,175 @@
-// src/app/admin/personnel/[id]/edit/page.tsx
-'use client'
+'use client';
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { createClient } from '../../../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
-import Link from 'next/link'
+import { useState, useEffect } from 'react';
+import { createClient } from '../../../../../../utils/supabase/client';
+import { useRouter } from 'next/navigation';
+import Select, { MultiValue } from 'react-select';
 
-interface Committee {
-  id: string;
-  name: string;
+// FIX: Added a specific interface for react-select options
+interface SelectOption {
+  value: string;
+  label: string;
 }
 
-export default function EditPersonnelPage() {
-  const params = useParams()
-  const personnelId = params.id as string
-  const router = useRouter()
-  const supabase = createClient()
+type Personnel = {
+    id: string;
+    name: string;
+    position: string;
+    bio: string;
+    image_url: string;
+    committees: string[];
+};
 
-  const [name, setName] = useState('')
-  const [position, setPosition] = useState('')
-  const [bio, setBio] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [isActive, setIsActive] = useState(true)
-  const [role, setRole] = useState('MP')
-  const [campus, setCampus] = useState('Rangsit')
+type Committee = {
+    id: string;
+    name: string;
+};
 
-  const [allCommittees, setAllCommittees] = useState<Committee[]>([])
-  const [selectedCommittees, setSelectedCommittees] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
+export default function EditPersonnelPage({ params }: { params: { id: string } }) {
+    const supabase = createClient();
+    const router = useRouter();
+    const [personnel, setPersonnel] = useState<Personnel | null>(null);
+    const [name, setName] = useState('');
+    const [position, setPosition] = useState('');
+    const [bio, setBio] = useState('');
+    const [file, setFile] = useState<File | null>(null);
+    const [committees, setCommittees] = useState<Committee[]>([]);
+    const [selectedCommittees, setSelectedCommittees] = useState<MultiValue<SelectOption>>([]);
+    const [loading, setLoading] = useState(true);
 
-  const fetchPersonnelData = useCallback(async () => {
-    if (!personnelId) return;
+    useEffect(() => {
+        const fetchData = async () => {
+            const { data: personnelData, error: personnelError } = await supabase
+                .from('personnel')
+                .select('*')
+                .eq('id', params.id)
+                .single();
 
-    const { data: person, error: personError } = await supabase
-      .from('personnel')
-      .select('*')
-      .eq('id', personnelId)
-      .single()
+            if (personnelError) {
+                console.error('Error fetching personnel:', personnelError);
+            } else if (personnelData) {
+                setPersonnel(personnelData);
+                setName(personnelData.name);
+                setPosition(personnelData.position);
+                setBio(personnelData.bio);
+            }
 
-    if (personError) throw personError;
+            const { data: committeesData, error: committeesError } = await supabase
+                .from('committees')
+                .select('id, name');
 
-    setName(person.name)
-    setPosition(person.position || '')
-    setBio(person.bio || '')
-    setImageUrl(person.image_url || '')
-    setIsActive(person.is_active)
-    setRole(person.role || 'MP')
-    setCampus(person.campus || 'Rangsit')
+            if (committeesError) {
+                console.error('Error fetching committees:', committeesError);
+            } else if (committeesData) {
+                setCommittees(committeesData);
+                if (personnelData?.committees) {
+                    const initialSelected = committeesData
+                        .filter(c => personnelData.committees.includes(c.id))
+                        .map(c => ({ value: c.id, label: c.name }));
+                    setSelectedCommittees(initialSelected);
+                }
+            }
+            setLoading(false);
+        };
+        fetchData();
+    }, [params.id, supabase]);
 
-    const { data: committeesData } = await supabase.from('committees').select('id, name')
-    setAllCommittees(committeesData || [])
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setFile(e.target.files[0]);
+        }
+    };
 
-    const { data: assignments } = await supabase.from('committee_assignments').select('committee_id').eq('personnel_id', personnelId)
-    setSelectedCommittees(new Set((assignments || []).map(a => a.committee_id)))
+    const handleFileUpload = async (fileToUpload: File): Promise<string> => {
+        const filePath = `personnel/${Date.now()}_${fileToUpload.name}`;
+        const { error } = await supabase.storage
+            .from('personnel-images')
+            .upload(filePath, fileToUpload);
+        
+        if (error) {
+            console.error('Error uploading file:', error);
+            throw error;
+        }
 
-  }, [personnelId, supabase]);
+        const { data } = supabase.storage.from('personnel-images').getPublicUrl(filePath);
+        return data.publicUrl;
+    };
 
-  useEffect(() => {
-    setLoading(true)
-    fetchPersonnelData().catch(err => {
-      setMessage(`เกิดข้อผิดพลาดในการโหลดข้อมูล: ${err.message}`)
-    }).finally(() => {
-      setLoading(false)
-    })
-  }, [fetchPersonnelData])
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!personnel) return;
 
-  const handleCommitteeChange = (committeeId: string) => {
-    const newSelection = new Set(selectedCommittees)
-    if (newSelection.has(committeeId)) {
-      newSelection.delete(committeeId)
-    } else {
-      newSelection.add(committeeId)
-    }
-    setSelectedCommittees(newSelection)
-  }
+        let imageUrl = personnel.image_url;
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    setLoading(true)
-    setMessage('')
+        if (file) {
+            try {
+                imageUrl = await handleFileUpload(file);
+            } catch(e) {
+                alert('Image upload failed');
+                return;
+            }
+        }
 
-    try {
-      // 👇 1. เพิ่มตรรกะตรวจสอบค่าว่าง
-      const finalPosition = position.trim() === '' ? '-' : position;
+        const { error } = await supabase
+            .from('personnel')
+            .update({
+                name,
+                position,
+                bio,
+                image_url: imageUrl,
+                // FIX: Used the specific 'SelectOption' type instead of 'any'
+                committees: selectedCommittees.map((c: SelectOption) => c.value),
+            })
+            .eq('id', params.id);
 
-      const { error: updateError } = await supabase
-        .from('personnel')
-        .update({
-          name,
-          position: finalPosition, // 👈 2. ใช้ค่าที่ผ่านการตรวจสอบแล้ว
-          bio,
-          image_url: imageUrl || null,
-          is_active: isActive,
-          role,
-          campus,
-        })
-        .eq('id', personnelId)
-      if (updateError) throw updateError;
+        if (error) {
+            console.error('Error updating personnel:', error);
+            alert('Failed to update personnel: ' + error.message);
+        } else {
+            router.push('/admin/personnel');
+            router.refresh();
+        }
+    };
 
-      await supabase.from('committee_assignments').delete().eq('personnel_id', personnelId)
+    if (loading) return <div>Loading...</div>;
+    if (!personnel) return <div>Personnel not found.</div>;
 
-      const newAssignments = Array.from(selectedCommittees).map(committee_id => ({
-        personnel_id: personnelId,
-        committee_id,
-      }))
+    const committeeOptions: SelectOption[] = committees.map(c => ({ value: c.id, label: c.name }));
 
-      if (newAssignments.length > 0) {
-        await supabase.from('committee_assignments').insert(newAssignments)
-      }
-
-      setMessage('บันทึกข้อมูลสำเร็จ!')
-      router.push('/admin/personnel')
-      router.refresh()
-    } catch (error: any) {
-      setMessage(`เกิดข้อผิดพลาด: ${error.message}`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return <div className="d-flex justify-content-center align-items-center vh-100"><p>กำลังโหลดข้อมูล...</p></div>
-  }
-
-  return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
-      <main className="container flex-grow-1 py-4">
-        <h1 className="mb-4">แก้ไขข้อมูลบุคลากร</h1>
-        <form onSubmit={handleSubmit}>
-          <div className="row">
-            <div className="col-md-8">
-              <div className="card shadow-sm p-4">
-                <div className="mb-3">
-                  <label htmlFor="name" className="form-label">ชื่อ-นามสกุล</label>
-                  <input type="text" className="form-control" id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+    return (
+        <div className="container p-4 mx-auto">
+            <h1 className="mb-4 text-2xl font-bold">Edit Personnel</h1>
+            <form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow-md">
+                {/* Form fields... */}
+                <div className="mb-4">
+                    <label className="block mb-2 text-sm font-bold text-gray-700">Name</label>
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full input input-bordered" required />
                 </div>
-                <div className="mb-3">
-                  <label htmlFor="position" className="form-label">ตำแหน่งในพรรค</label>
-                  <input type="text" className="form-control" id="position" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="เช่น สมาชิกพรรค (ถ้าว่างจะแสดงเป็น -)" />
+                <div className="mb-4">
+                    <label className="block mb-2 text-sm font-bold text-gray-700">Position</label>
+                    <input type="text" value={position} onChange={(e) => setPosition(e.target.value)} className="w-full input input-bordered" required />
                 </div>
-
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="role" className="form-label">บทบาท</label>
-                    <select id="role" className="form-select" value={role} onChange={(e) => setRole(e.target.value)}>
-                      <option value="MP">ส.ส.</option>
-                      <option value="Executive">กรรมการบริหาร</option>
-                      <option value="Both">เป็นทั้งสองอย่าง</option>
-                    </select>
-                  </div>
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="campus" className="form-label">สังกัดศูนย์</label>
-                    <select id="campus" className="form-select" value={campus} onChange={(e) => setCampus(e.target.value)}>
-                      <option value="Rangsit">รังสิต</option>
-                      <option value="Tha Prachan">ท่าพระจันทร์</option>
-                      <option value="Lampang">ลำปาง</option>
-                    </select>
-                  </div>
+                <div className="mb-4">
+                    <label className="block mb-2 text-sm font-bold text-gray-700">Bio</label>
+                    <textarea value={bio} onChange={(e) => setBio(e.target.value)} className="w-full textarea textarea-bordered" />
                 </div>
-
-                <div className="mb-3">
-                  <label htmlFor="bio" className="form-label">ประวัติโดยย่อ</label>
-                  <textarea className="form-control" id="bio" rows={4} value={bio} onChange={(e) => setBio(e.target.value)}></textarea>
+                <div className="mb-4">
+                    <label className="block mb-2 text-sm font-bold text-gray-700">Committees</label>
+                    <Select
+                        isMulti
+                        options={committeeOptions}
+                        value={selectedCommittees}
+                        onChange={setSelectedCommittees}
+                        className="w-full"
+                    />
                 </div>
-                <div className="mb-3">
-                  <label htmlFor="imageUrl" className="form-label">URL รูปภาพ</label>
-                  <input type="url" className="form-control" id="imageUrl" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+                <div className="mb-4">
+                    <label className="block mb-2 text-sm font-bold text-gray-700">Image</label>
+                    {personnel.image_url && <img src={personnel.image_url} alt={name} className="w-32 h-32 mb-4" />}
+                    <input type="file" onChange={handleFileChange} className="w-full file-input file-input-bordered" />
                 </div>
-                <div className="form-check mb-3">
-                  <input className="form-check-input" type="checkbox" id="isActive" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-                  <label className="form-check-label" htmlFor="isActive">ดำรงตำแหน่ง (Active)</label>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-4">
-              <div className="card shadow-sm p-4">
-                <h5>สังกัดคณะกรรมาธิการ</h5>
-                <hr/>
-                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {allCommittees.map(committee => (
-                    <div className="form-check" key={committee.id}>
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id={`committee-${committee.id}`}
-                        checked={selectedCommittees.has(committee.id)}
-                        onChange={() => handleCommitteeChange(committee.id)}
-                      />
-                      <label className="form-check-label" htmlFor={`committee-${committee.id}`}>
-                        {committee.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4">
-            <button type="submit" className="btn btn-primary me-2" disabled={loading}>
-              {loading ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
-            </button>
-            <Link href="/admin/personnel" className="btn btn-secondary">ยกเลิก</Link>
-          </div>
-        </form>
-        {message && <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`}>{message}</div>}
-      </main>
-    </div>
-  )
+                <button type="submit" className="btn btn-primary">Update Personnel</button>
+            </form>
+        </div>
+    );
 }
