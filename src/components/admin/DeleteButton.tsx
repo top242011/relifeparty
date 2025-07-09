@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 // รับ props เพิ่ม: ชื่อตาราง และ ID ของ record
 interface DeleteButtonProps {
   recordId: string;
-  tableName: 'policies' | 'news' | 'events'; // กำหนดประเภทของตารางที่รับได้
+  tableName: 'policies' | 'news' | 'events' | 'personnel'; // กำหนดประเภทของตารางที่รับได้
 }
 
 export default function DeleteButton({ recordId, tableName }: DeleteButtonProps) {
