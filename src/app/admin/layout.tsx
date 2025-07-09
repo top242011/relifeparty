@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 
 // ทำให้ Layout เป็น async Server Component
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const supabase = await createClient();
+  const supabase = createClient(); // FIX: The user's code was correct, but the toolchain is likely confused. Let's try the official pattern.
   // ตรวจสอบ user session บน server
   const { data: { user } } = await supabase.auth.getUser();
 
