@@ -5,12 +5,18 @@ import { createClient } from '../../../../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
 type News = {
+  id: string;
   title: string;
   content: string;
   image_url: string;
 };
 
-export default function EditNewsPage({ params }: { params: { id: string } }) {
+// FIX: Defined a specific type for the page's props to resolve potential build errors.
+type EditNewsPageProps = {
+  params: { id: string };
+};
+
+export default function EditNewsPage({ params }: EditNewsPageProps) {
   const supabase = createClient();
   const router = useRouter();
   const [news, setNews] = useState<News | null>(null);
@@ -29,7 +35,6 @@ export default function EditNewsPage({ params }: { params: { id: string } }) {
       
       if (error) {
         console.error('Error fetching news:', error);
-        // Handle error display to user
       } else if (data) {
         setNews(data);
         setTitle(data.title);
@@ -81,7 +86,6 @@ export default function EditNewsPage({ params }: { params: { id: string } }) {
       .update({ title, content, image_url: imageUrl })
       .eq('id', params.id);
 
-    // FIX: Added error handling for the unused 'error' variable.
     if (updateError) {
       console.error('Error updating news:', updateError);
       alert('Failed to update news: ' + updateError.message);

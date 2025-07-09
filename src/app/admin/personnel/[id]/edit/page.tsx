@@ -5,7 +5,6 @@ import { createClient } from '../../../../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import Select, { MultiValue } from 'react-select';
 
-// FIX: Added a specific interface for react-select options
 interface SelectOption {
   value: string;
   label: string;
@@ -25,7 +24,12 @@ type Committee = {
     name: string;
 };
 
-export default function EditPersonnelPage({ params }: { params: { id: string } }) {
+// FIX: Defined a specific type for the page's props to resolve potential build errors.
+type EditPersonnelPageProps = {
+    params: { id: string };
+};
+
+export default function EditPersonnelPage({ params }: EditPersonnelPageProps) {
     const supabase = createClient();
     const router = useRouter();
     const [personnel, setPersonnel] = useState<Personnel | null>(null);
@@ -117,7 +121,6 @@ export default function EditPersonnelPage({ params }: { params: { id: string } }
                 position,
                 bio,
                 image_url: imageUrl,
-                // FIX: Used the specific 'SelectOption' type instead of 'any'
                 committees: selectedCommittees.map((c: SelectOption) => c.value),
             })
             .eq('id', params.id);
@@ -140,7 +143,6 @@ export default function EditPersonnelPage({ params }: { params: { id: string } }
         <div className="container p-4 mx-auto">
             <h1 className="mb-4 text-2xl font-bold">Edit Personnel</h1>
             <form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow-md">
-                {/* Form fields... */}
                 <div className="mb-4">
                     <label className="block mb-2 text-sm font-bold text-gray-700">Name</label>
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full input input-bordered" required />

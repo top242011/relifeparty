@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../../../../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
+// Define types for better readability and type safety
 type Meeting = {
     id: string;
     title: string;
@@ -18,7 +19,12 @@ type MeetingFile = {
     file_url: string;
 };
 
-export default function EditMeetingPage({ params }: { params: { id: string } }) {
+// FIX: Defined a specific type for the page's props to resolve the build error.
+type EditMeetingPageProps = {
+    params: { id: string };
+};
+
+export default function EditMeetingPage({ params }: EditMeetingPageProps) {
     const supabase = createClient();
     const router = useRouter();
     const [meeting, setMeeting] = useState<Meeting | null>(null);
@@ -109,7 +115,6 @@ export default function EditMeetingPage({ params }: { params: { id: string } }) 
         };
 
         if (filesToUpload.length > 0) {
-            // FIX: Removed unnecessary 'as any' cast. filesToUpload is already File[]
             const uploadedFileUrls = await Promise.all(
                 filesToUpload.map(handleFileUpload)
             );

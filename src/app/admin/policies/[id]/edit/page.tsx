@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../../../../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
-// FIX: This type is now used for state, resolving the 'no-unused-vars' error.
 type Policy = {
   id: string;
   title: string;
@@ -13,10 +12,14 @@ type Policy = {
   created_at: string;
 };
 
-export default function EditPolicyPage({ params }: { params: { id: string } }) {
+// FIX: Defined a specific type for the page's props to resolve potential build errors.
+type EditPolicyPageProps = {
+  params: { id: string };
+};
+
+export default function EditPolicyPage({ params }: EditPolicyPageProps) {
   const supabase = createClient();
   const router = useRouter();
-  // FIX: Used the 'Policy' type instead of 'any' for better type safety.
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -64,7 +67,6 @@ export default function EditPolicyPage({ params }: { params: { id: string } }) {
     return data.publicUrl;
   };
 
-  // FIX: Changed event type from 'any' to a specific React FormEvent type.
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!policy) return;
