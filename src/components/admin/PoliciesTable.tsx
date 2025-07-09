@@ -2,7 +2,7 @@
 'use client'
 
 import Link from 'next/link'
-import DeletePolicyButton from './DeletePolicyButton' // สมมติว่าคุณมี Component นี้อยู่แล้ว
+import DeleteButton from './DeleteButton' // 1. ตรวจสอบว่า import Component ที่ถูกต้อง
 
 // กำหนด Type ของ Policy
 interface Policy {
@@ -14,7 +14,6 @@ interface Policy {
   created_at: string;
 }
 
-// รับ props เป็น policies array
 export default function PoliciesTable({ policies }: { policies: Policy[] }) {
   if (policies.length === 0) {
     return (
@@ -59,7 +58,8 @@ export default function PoliciesTable({ policies }: { policies: Policy[] }) {
                 <Link href={`/admin/policies/${policy.id}/edit`} className="btn btn-info btn-sm me-2">
                   แก้ไข
                 </Link>
-                <DeletePolicyButton policyId={policy.id} />
+                {/* 2. แก้ไข props จาก policyId เป็น recordId ที่นี่ */}
+                <DeleteButton recordId={policy.id} tableName="policies" />
               </td>
             </tr>
           ))}
