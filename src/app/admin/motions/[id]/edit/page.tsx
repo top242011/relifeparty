@@ -1,23 +1,32 @@
 // src/app/admin/motions/[id]/edit/page.tsx
-
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useId } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '../../../../../../utils/supabase/client'
 import AdminNavbar from '@/components/admin/AdminNavbar'
 import Link from 'next/link'
 
+// --- Define Types ---
 interface Voter { id: string; name: string; }
 type VoteMap = { [personnelId: string]: string; };
 
-// 1. สร้าง Type สำหรับข้อมูลที่ดึงมาให้ชัดเจน
-interface AttendeeWithPersonnel {
+// 1. สร้าง Type สำหรับข้อมูลที่ Supabase ส่งกลับมาโดยเฉพาะ
+// สังเกตว่า personnel อาจเป็น Array หรือ Object เดียวก็ได้ ขึ้นอยู่กับความสัมพันธ์
+type AttendeeFromSupabase = {
   personnel_id: string;
   personnel: {
     id: string;
     name: string;
-  } | null; // personnel อาจเป็น null ได้
+  } | null; // personnel can be null if the relation is empty
+};
+
+interface Motion {
+  id: string; 
+  title: string;
+  details: string;
+  proposer_id: string | null;
+  votes: { [personnelId: string]: string }; 
 }
 
 export default function EditMotionPage() {
@@ -26,173 +35,178 @@ export default function EditMotionPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [title, setTitle] = useState('')
-  const [result, setResult] = useState('')
-  
+  // --- State ---
+  const [motionData, setMotionData] = useState<Motion | null>(null);
   const [voters, setVoters] = useState<Voter[]>([])
   const [votes, setVotes] = useState<VoteMap>({})
-
+  
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
+  // --- Data Fetching ---
   const fetchMotionData = useCallback(async () => {
     if (!motionId) return;
 
-    const { data: motionData, error: motionError } = await supabase
+    // 1. Fetch motion details and related meeting_id
+    const { data: motion, error: motionError } = await supabase
       .from('motions')
-      .select('*, meetings(id)') // ดึง meeting_id มาด้วย
+      .select('*, meetings(id)')
       .eq('id', motionId)
       .single()
     if (motionError) throw motionError;
     
-    setTitle(motionData.title)
-    setResult(motionData.result || 'รอลงมติ')
-
-    if (motionData.meeting_id) {
+    // 2. Fetch attendees if the motion is linked to a meeting
+    let activeVoters: Voter[] = [];
+    if (motion.meeting_id) {
       const { data: attendeesData, error: attendeesError } = await supabase
         .from('attendance_records')
-        .select(`
-          personnel_id,
-          personnel (id, name)
-        `)
-        .eq('meeting_id', motionData.meeting_id)
-        .eq('status', 'เข้าประชุม')
+        .select('personnel_id, personnel(id, name)')
+        .eq('meeting_id', motion.meeting_id)
+        .eq('status', 'เข้าประชุม');
       if (attendeesError) throw attendeesError;
 
-      // 2. แก้ไขการ map ข้อมูลให้ถูกต้องและปลอดภัย
-      const activeVoters = (attendeesData as AttendeeWithPersonnel[])
-        .map(a => a.personnel) // ดึง object personnel ออกมา
-        .filter((p): p is Voter => p !== null); // กรองค่า null ออก และบอก TS ว่าผลลัพธ์คือ Voter[]
-      
-      setVoters(activeVoters)
-
-      const { data: votesData, error: votesError } = await supabase
-        .from('voting_records')
-        .select('personnel_id, vote')
-        .eq('motion_id', motionId)
-      if (votesError) throw votesError;
-
-      const initialVotes: VoteMap = {}
-      activeVoters.forEach(voter => {
-        const record = votesData.find(v => v.personnel_id === voter.id)
-        initialVotes[voter.id] = record ? record.vote : 'ไม่แสดงตน'
-      })
-      setVotes(initialVotes)
+      // 3. Safely map and filter the data
+      activeVoters = (attendeesData as any[])
+        .map(a => {
+          // If personnel is an array, take the first element; otherwise, use as is
+          const personnel = Array.isArray(a.personnel) ? a.personnel[0] : a.personnel;
+          return personnel;
+        })
+        .filter((p): p is Voter => p !== null && typeof p === 'object' && 'id' in p && 'name' in p);
     }
+    setVoters(activeVoters);
+
+    // 4. Fetch existing votes for this motion
+    const { data: votesData, error: votesError } = await supabase
+      .from('voting_records')
+      .select('personnel_id, vote')
+      .eq('motion_id', motionId);
+    if (votesError) throw votesError;
+
+    const initialVotes: VoteMap = {};
+    activeVoters.forEach(voter => {
+      const record = votesData?.find(v => v.personnel_id === voter.id);
+      initialVotes[voter.id] = record?.vote || 'ไม่แสดงตน';
+    });
+    setVotes(initialVotes);
+
+    // 5. Set all motion data at once
+    setMotionData({
+      id: motion.id,
+      title: motion.title,
+      details: motion.details || '',
+      proposer_id: motion.proposer_id,
+      votes: initialVotes, // We manage votes separately but can init here
+    });
+
   }, [motionId, supabase]);
 
   useEffect(() => {
-    setLoading(true)
-    fetchMotionData().catch(err => {
-      setMessage(`เกิดข้อผิดพลาด: ${err.message}`)
-    }).finally(() => {
-      setLoading(false)
-    })
-  }, [fetchMotionData])
+    fetchMotionData().catch(err => setMessage(`Error loading data: ${err.message}`)).finally(() => setLoading(false));
+  }, [fetchMotionData]);
 
+  // --- Event Handlers ---
+  const handleMotionChange = (field: keyof Motion, value: any) => {
+    setMotionData(prev => prev ? { ...prev, [field]: value } : null);
+  };
+  
   const handleVoteChange = (personnelId: string, vote: string) => {
-    setVotes(prev => ({ ...prev, [personnelId]: vote }))
-  }
+    setVotes(prev => ({ ...prev, [personnelId]: vote }));
+  };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    setSaving(true)
-    setMessage('')
+  // --- Main Save Logic ---
+  const handleSubmit = async () => {
+    if (!motionData) return;
+    setSaving(true);
+    setMessage('');
     try {
-      await supabase.from('motions').update({ title, result }).eq('id', motionId)
+      // Update motion details
+      await supabase.from('motions').update({ title: motionData.title, details: motionData.details }).eq('id', motionId);
 
+      // Upsert votes
       const votesToUpsert = Object.entries(votes).map(([personnel_id, vote]) => ({
         motion_id: motionId,
         personnel_id,
         vote,
-      }))
-
+      }));
       if (votesToUpsert.length > 0) {
-        const { error: upsertError } = await supabase
-          .from('voting_records')
-          .upsert(votesToUpsert, { onConflict: 'motion_id,personnel_id' })
-        if (upsertError) throw upsertError;
+        await supabase.from('voting_records').upsert(votesToUpsert, { onConflict: 'motion_id,personnel_id' });
       }
-
-      setMessage('บันทึกผลโหวตสำเร็จ!')
+      setMessage('บันทึกข้อมูลทั้งหมดสำเร็จ!');
     } catch (error: any) {
-      setMessage(`เกิดข้อผิดพลาด: ${error.message}`)
+      setMessage(`เกิดข้อผิดพลาด: ${error.message}`);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   if (loading) {
-    return <div className="d-flex justify-content-center align-items-center vh-100"><p>กำลังโหลดข้อมูลญัตติ...</p></div>
+    return <div className="d-flex justify-content-center align-items-center vh-100"><p>กำลังโหลดข้อมูล...</p></div>
+  }
+
+  if (!motionData) {
+     return <div className="d-flex justify-content-center align-items-center vh-100"><p className="text-danger">ไม่พบข้อมูลญัตติ</p></div>
   }
 
   return (
-    // ... JSX เหมือนเดิม ...
     <div className="d-flex flex-column min-vh-100 bg-light">
       <AdminNavbar />
       <main className="container flex-grow-1 py-4">
-        <h1 className="mb-4">แก้ไขญัตติและบันทึกผลโหวต</h1>
-        <form onSubmit={handleSubmit}>
-          <div className="card shadow-sm p-4 mb-4">
-            <h5 className="mb-3">รายละเอียดญัตติ</h5>
-            <div className="row">
-              <div className="col-md-8 mb-3">
-                <label htmlFor="title" className="form-label">ชื่อญัตติ</label>
-                <input type="text" className="form-control" id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-              </div>
-              <div className="col-md-4 mb-3">
-                <label htmlFor="result" className="form-label">ผลการลงมติของสภา</label>
-                <select className="form-select" id="result" value={result} onChange={(e) => setResult(e.target.value)}>
-                  <option value="รอลงมติ">รอลงมติ</option>
-                  <option value="ผ่าน">ผ่าน</option>
-                  <option value="ไม่ผ่าน">ไม่ผ่าน</option>
-                  <option value="เลื่อน">เลื่อน</option>
-                  <option value="ถอน">ถอน</option>
-                </select>
-              </div>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h1 className="mb-0">แก้ไขญัตติและบันทึกผลโหวต</h1>
+          <button onClick={handleSubmit} className="btn btn-success btn-lg" disabled={saving}>
+            {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูลทั้งหมด'}
+          </button>
+        </div>
+
+        {message && <div className={`alert ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`}>{message}</div>}
+
+        <div className="card shadow-sm p-4 mb-4">
+          <div className="mb-3">
+            <label className="form-label">ชื่อญัตติ</label>
+            <input type="text" className="form-control" value={motionData.title} onChange={e => handleMotionChange('title', e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label">รายละเอียด</label>
+            <textarea className="form-control" rows={2} value={motionData.details} onChange={e => handleMotionChange('details', e.target.value)}></textarea>
+          </div>
+        </div>
+
+        <div className="card shadow-sm p-4">
+          <h5 className="mb-3">บันทึกการลงคะแนนเสียง (เฉพาะผู้ที่เข้าประชุม)</h5>
+          {voters.length > 0 ? (
+            <div className="table-responsive" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
+              <table className="table table-sm">
+                <tbody>
+                  {voters.map(voter => (
+                    <tr key={voter.id}>
+                      <td>{voter.name}</td>
+                      <td style={{ width: '220px' }}>
+                        <select
+                          className="form-select form-select-sm"
+                          value={votes[voter.id] || 'ไม่แสดงตน'}
+                          onChange={e => handleVoteChange(voter.id, e.target.value)}
+                        >
+                          <option value="เห็นด้วย">เห็นด้วย</option>
+                          <option value="ไม่เห็นด้วย">ไม่เห็นด้วย</option>
+                          <option value="งดออกเสียง">งดออกเสียง</option>
+                          <option value="ไม่แสดงตน">ไม่แสดงตน</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+          ) : (
+            <p className="text-muted">ไม่พบข้อมูลผู้เข้าประชุมสำหรับญัตตินี้</p>
+          )}
+        </div>
 
-          <div className="card shadow-sm p-4">
-            <h5 className="mb-3">บันทึกการลงคะแนนเสียง (เฉพาะผู้ที่เข้าประชุม)</h5>
-            {voters.length > 0 ? (
-              <div className="table-responsive" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
-                <table className="table">
-                  <tbody>
-                    {voters.map(voter => (
-                      <tr key={voter.id}>
-                        <td>{voter.name}</td>
-                        <td style={{ width: '220px' }}>
-                          <select
-                            className="form-select form-select-sm"
-                            value={votes[voter.id] || 'ไม่แสดงตน'}
-                            onChange={(e) => handleVoteChange(voter.id, e.target.value)}
-                          >
-                            <option value="เห็นด้วย">เห็นด้วย</option>
-                            <option value="ไม่เห็นด้วย">ไม่เห็นด้วย</option>
-                            <option value="งดออกเสียง">งดออกเสียง</option>
-                            <option value="ไม่แสดงตน">ไม่แสดงตน</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-muted">ไม่พบข้อมูลผู้เข้าประชุมสำหรับญัตตินี้ หรือญัตตินี้ไม่ได้ผูกกับการประชุมใด</p>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <button type="submit" className="btn btn-primary me-2" disabled={saving}>
-              {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูลทั้งหมด'}
-            </button>
+        <div className="mt-4">
             <Link href="/admin/motions" className="btn btn-secondary">กลับไปหน้ารายการ</Link>
-          </div>
-        </form>
-        {message && <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`}>{message}</div>}
+        </div>
       </main>
     </div>
   )
