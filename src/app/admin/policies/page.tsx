@@ -26,7 +26,8 @@ export default async function PoliciesPage() {
         <div className="p-4 text-center text-red-700 bg-red-100 rounded-lg">
           <p className="font-bold">เกิดข้อผิดพลาดในการดึงข้อมูล!</p>
           <p className="text-sm">
-            กรุณาตรวจสอบว่าตาราง 'policies' มีอยู่ในฐานข้อมูลและตั้งค่า RLS
+            {/* FIX: Replaced single quotes with &apos; to pass linting */}
+            กรุณาตรวจสอบว่าตาราง &apos;policies&apos; มีอยู่ในฐานข้อมูลและตั้งค่า RLS
             ถูกต้องหรือไม่
           </p>
           <p className="mt-2 text-xs text-gray-600">({error.message})</p>
