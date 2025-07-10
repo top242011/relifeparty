@@ -1,104 +1,113 @@
-'use client';
-
-import { useState } from 'react';
-import { createClient } from '../../../../../utils/supabase/client';
-import { useRouter } from 'next/navigation';
+// src/app/admin/policies/create/page.tsx
+import { createClient } from "../../../../../utils/supabase/server";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export default function CreatePolicyPage() {
-  const supabase = createClient();
-  const router = useRouter();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const createPolicy = async (formData: FormData) => {
+    "use server";
+    const supabase = createClient();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFile(e.target.files[0]);
+    const title = formData.get("title") as string;
+    const description = formData.get("description") as string;
+    const file = formData.get("file") as File;
+
+    let fileUrl = "";
+    // Handle file upload
+    if (file && file.size > 0) {
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from("policies") // Make sure you have a 'policies' bucket in Supabase Storage
+        .upload(`public/${Date.now()}_${file.name}`, file);
+
+      if (fileError) {
+        console.error("File upload error:", fileError);
+        // Handle error appropriately
+        return;
+      }
+      
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from("policies")
+        .getPublicUrl(fileData.path);
+      
+      fileUrl = publicUrlData.publicUrl;
     }
-  };
 
-  const handleFileUpload = async (fileToUpload: File): Promise<string> => {
-    const filePath = `policies/${Date.now()}_${fileToUpload.name}`;
-    const { error } = await supabase.storage
-      .from('policy-files')
-      .upload(filePath, fileToUpload);
-    
+    const { error } = await supabase
+      .from("policies")
+      .insert([{ title, description, file_url: fileUrl }]);
+
     if (error) {
-        console.error('Upload error:', error.message);
-        throw error;
-    }
-
-    const { data } = supabase.storage.from('policy-files').getPublicUrl(filePath);
-    return data.publicUrl;
-  };
-
-  // FIX: Changed event type from 'any' to a specific React FormEvent type.
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!file) {
-      alert('Please select a file to upload.');
+      console.error("Insert error:", error);
+      // Handle error appropriately
       return;
     }
 
-    try {
-      const fileUrl = await handleFileUpload(file);
-      const { error } = await supabase
-        .from('policies')
-        .insert([{ title, description, file_url: fileUrl }]);
-
-      if (error) {
-        throw error;
-      }
-
-      router.push('/admin/policies');
-      router.refresh();
-
-    } catch (error) {
-      console.error('Error creating policy:', error);
-      if (error instanceof Error) {
-        alert('Failed to create policy: ' + error.message);
-      } else {
-        alert('An unknown error occurred.');
-      }
-    }
+    revalidatePath("/admin/policies");
+    redirect("/admin/policies");
   };
 
   return (
-    <div className="container p-4 mx-auto">
-      <h1 className="mb-4 text-2xl font-bold">Create New Policy</h1>
-      <form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow-md">
-        <div className="mb-4">
-          <label className="block mb-2 text-sm font-bold text-gray-700">Title</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block mb-2 text-sm font-bold text-gray-700">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block mb-2 text-sm font-bold text-gray-700">File</label>
-          <input
-            type="file"
-            onChange={handleFileChange}
-            className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-            required
-          />
-        </div>
-        <button type="submit" className="px-4 py-2 font-bold text-white bg-blue-500 rounded hover:bg-blue-700 focus:outline-none focus:shadow-outline">
-          Create Policy
-        </button>
-      </form>
+    <div>
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">
+        สร้างนโยบายใหม่
+      </h1>
+      <div className="max-w-2xl bg-white p-8 rounded-lg shadow-md">
+        <form action={createPolicy} className="space-y-6">
+          <div>
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-gray-700"
+            >
+              หัวข้อ
+            </label>
+            <input
+              type="text"
+              name="title"
+              id="title"
+              required
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-gray-700"
+            >
+              คำอธิบาย
+            </label>
+            <textarea
+              name="description"
+              id="description"
+              rows={4}
+              required
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            ></textarea>
+          </div>
+          <div>
+            <label
+              htmlFor="file"
+              className="block text-sm font-medium text-gray-700"
+            >
+              ไฟล์เอกสาร (ถ้ามี)
+            </label>
+            <input
+              type="file"
+              name="file"
+              id="file"
+              className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              บันทึก
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

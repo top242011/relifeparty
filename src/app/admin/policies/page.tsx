@@ -1,90 +1,39 @@
 // src/app/admin/policies/page.tsx
-'use client'
+import { createClient } from "../../../../utils/supabase/server";
+import Link from "next/link";
+import PoliciesTable from "@/components/admin/PoliciesTable";
+import { PlusCircle } from "lucide-react";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { createClient } from '../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
-import DeleteButton from '@/components/admin/DeleteButton' // 1. ตรวจสอบว่า import DeleteButton มาถูกต้อง
-
-interface Policy {
-  id: string;
-  title: string;
-  status: string;
-  publishDate: string;
-  created_at: string;
-}
-
-export default function AdminPoliciesPage() {
-  const [policies, setPolicies] = useState<Policy[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchPolicies = async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('policies')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        setError(error.message)
-      } else {
-        setPolicies(data)
-      }
-      setLoading(false)
-    }
-
-    fetchPolicies()
-  }, [])
+export default async function PoliciesPage() {
+  const supabase = createClient();
+  // IMPORTANT: Ensure your table is named 'policies' in Supabase
+  const { data: policies, error } = await supabase.from("policies").select("*");
 
   return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
-      <main className="container flex-grow-1 py-4">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h1 className="text-dark-blue">จัดการนโยบาย</h1>
-          <Link href="/admin/policies/create" className="btn btn-primary">
-            + เพิ่มนโยบายใหม่
-          </Link>
-        </div>
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">จัดการนโยบาย</h1>
+        <Link
+          href="/admin/policies/create"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <PlusCircle className="mr-2 h-5 w-5" />
+          เพิ่มนโยบายใหม่
+        </Link>
+      </div>
 
-        {loading ? (
-          <p>กำลังโหลดข้อมูลนโยบาย...</p>
-        ) : error ? (
-          <div className="alert alert-danger">เกิดข้อผิดพลาด: {error}</div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-striped table-hover shadow-sm rounded overflow-hidden">
-              <thead className="bg-primary text-white">
-                <tr>
-                  <th scope="col">ชื่อนโยบาย</th>
-                  <th scope="col">สถานะ</th>
-                  <th scope="col">วันที่เผยแพร่</th>
-                  <th scope="col">สร้างเมื่อ</th>
-                  <th scope="col">การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {policies.map((policy) => (
-                  <tr key={policy.id}>
-                    <td>{policy.title}</td>
-                    <td><span className={`badge ${policy.status === 'สำเร็จ' ? 'bg-success' : 'bg-secondary'}`}>{policy.status}</span></td>
-                    <td>{new Date(policy.publishDate).toLocaleDateString('th-TH')}</td>
-                    <td>{new Date(policy.created_at).toLocaleDateString('th-TH')}</td>
-                    <td>
-                      <Link href={`/admin/policies/${policy.id}/edit`} className="btn btn-info btn-sm me-2">แก้ไข</Link>
-                      {/* 2. แก้ไข props จาก policyId เป็น recordId */}
-                      <DeleteButton recordId={policy.id} tableName="policies" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </main>
+      {error ? (
+        <div className="p-4 text-center text-red-700 bg-red-100 rounded-lg">
+          <p className="font-bold">เกิดข้อผิดพลาดในการดึงข้อมูล!</p>
+          <p className="text-sm">
+            กรุณาตรวจสอบว่าตาราง 'policies' มีอยู่ในฐานข้อมูลและตั้งค่า RLS
+            ถูกต้องหรือไม่
+          </p>
+          <p className="mt-2 text-xs text-gray-600">({error.message})</p>
+        </div>
+      ) : (
+        <PoliciesTable policies={policies || []} />
+      )}
     </div>
-  )
+  );
 }
