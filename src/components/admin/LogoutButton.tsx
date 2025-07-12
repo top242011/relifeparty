@@ -1,8 +1,12 @@
 // src/components/admin/LogoutButton.tsx
+"use client";
+
 import { createClient } from "../../../utils/supabase/client";
-import { revalidatePath } from "next/cache";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+
+// FIX: Removed server-only import 'revalidatePath' which crashes client-side code.
+// import { revalidatePath } from "next/cache"; 
 
 export default function LogoutButton() {
   const router = useRouter();
@@ -10,8 +14,10 @@ export default function LogoutButton() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    // router.refresh() is the correct way to trigger a re-fetch of server components
+    // from a client component after an action.
+    router.refresh(); 
     router.push("/admin/login");
-    router.refresh(); // Ensure the page state is fully cleared
   };
 
   return (

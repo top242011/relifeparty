@@ -1,113 +1,102 @@
-'use client'
+// src/app/admin/motions/page.tsx
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { createClient } from '../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
-import DeleteButton from '@/components/admin/DeleteButton'
+import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import DeleteButton from '@/components/admin/DeleteButton';
+import { deleteMotion } from '@/lib/actions'; // 1. Import action สำหรับลบ Motion
 
-interface Motion {
+// 2. กำหนด Type สำหรับข้อมูล (ควรย้ายไปที่ definitions.ts ในอนาคต)
+// Supabase จะ return array สำหรับ to-one relationship, เราจึงต้องจัดการให้ถูกต้อง
+interface MotionView {
   id: string;
   title: string;
   result: string | null;
-  created_at: string;
+  meetings: { topic: string }[] | null;
+  personnel: { name: string }[] | null;
 }
 
-// This interface now correctly expects meetings and personnel to be single objects or null
-interface MotionView extends Motion {
-  meetings: { topic: string } | null;
-  personnel: { name: string } | null;
-}
+// Helper function สำหรับแสดง Badge ของผลการลงมติ
+const getResultBadge = (result: string | null) => {
+    if (result === 'ผ่าน') return <span className="badge bg-success">ผ่าน</span>;
+    if (result === 'ไม่ผ่าน') return <span className="badge bg-danger">ไม่ผ่าน</span>;
+    return <span className="badge bg-secondary">รอลงมติ</span>;
+};
 
-export default function AdminMotionsPage() {
-  const [motions, setMotions] = useState<MotionView[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchMotions = async () => {
-      const supabase = createClient()
-      // The select query remains the same
-      const { data, error: fetchError } = await supabase
-        .from('motions')
-        .select(`
-          id,
-          title,
-          result,
-          created_at,
-          meetings ( topic ),
-          personnel ( name )
-        `)
-        .order('created_at', { ascending: false })
-
-      if (fetchError) {
-        setError(fetchError.message)
-      } else if (data) {
-        // 👇 **THE FIX IS HERE**
-        // We manually transform the data to match our MotionView interface
-        const transformedData = data.map(motion => ({
-          ...motion,
-          // If meetings/personnel is an array, take the first element, otherwise use it as is (or null)
-          meetings: Array.isArray(motion.meetings) ? motion.meetings[0] || null : motion.meetings,
-          personnel: Array.isArray(motion.personnel) ? motion.personnel[0] || null : motion.personnel,
-        }));
-        setMotions(transformedData)
-      }
-      setLoading(false)
+// 3. เปลี่ยนเป็น Server Component โดยใช้ async
+export default async function AdminMotionsPage() {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookies().get(name)?.value;
+        },
+      },
     }
+  );
 
-    fetchMotions()
-  }, [])
+  // 4. ดึงข้อมูลโดยตรงใน Server Component พร้อม join ตาราง
+  const { data: motions, error } = await supabase
+    .from('motions')
+    .select(`
+      id,
+      title,
+      result,
+      meetings ( topic ),
+      personnel ( name )
+    `)
+    .order('created_at', { ascending: false });
 
   return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
-      <main className="container flex-grow-1 py-4">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h1 className="text-dark-blue">จัดการญัตติ</h1>
-          <Link href="/admin/motions/create" className="btn btn-primary">
-            + เสนอญัตติใหม่
-          </Link>
-        </div>
+    <div className="container mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h1 className="text-dark-blue">จัดการญัตติ</h1>
+        <Link href="/admin/motions/create" className="btn btn-primary">
+          + เสนอญัตติใหม่
+        </Link>
+      </div>
 
-        {loading ? (
-          <p>กำลังโหลดข้อมูล...</p>
-        ) : error ? (
-          <div className="alert alert-danger">เกิดข้อผิดพลาด: {error}</div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-hover">
-              <thead className="table-light">
-                <tr>
-                  <th>ชื่อญัตติ</th>
-                  <th>ผู้เสนอ</th>
-                  <th>ผลการลงมติ</th>
-                  <th className="text-end">การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {motions.map((motion) => (
-                  <tr key={motion.id}>
-                    <td>{motion.title}</td>
-                    <td>{motion.personnel?.name || 'N/A'}</td>
-                    <td>
-                      <span className={`badge ${motion.result === 'ผ่าน' ? 'bg-success' : motion.result === 'ไม่ผ่าน' ? 'bg-danger' : 'bg-secondary'}`}>
-                        {motion.result || 'รอลงมติ'}
-                      </span>
-                    </td>
-                    <td className="text-end">
-                      <Link href={`/admin/motions/${motion.id}/edit`} className="btn btn-success btn-sm me-2">
-                        <i className="bi bi-pencil-square me-1"></i> แก้ไขและบันทึกผลโหวต
-                      </Link>
-                      <DeleteButton recordId={motion.id} tableName="motions" />
-                    </td>
+      {error ? (
+        <div className="alert alert-danger">เกิดข้อผิดพลาด: {error.message}</div>
+      ) : (
+        <div className="card">
+          <div className="card-body">
+            <div className="table-responsive">
+              <table className="table table-hover align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th>ชื่อญัตติ</th>
+                    <th>ผู้เสนอ</th>
+                    <th>ผลการลงมติ</th>
+                    <th className="text-center" style={{ width: '150px' }}>การจัดการ</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(motions as MotionView[])?.map((motion) => (
+                    <tr key={motion.id}>
+                      <td>{motion.title}</td>
+                      {/* จัดการกรณีที่ personnel เป็น array หรือ null */}
+                      <td>{motion.personnel?.[0]?.name || 'N/A'}</td>
+                      <td>{getResultBadge(motion.result)}</td>
+                      <td>
+                        <div className="d-flex justify-content-center gap-2">
+                          <Link href={`/admin/motions/${motion.id}/edit`} className="btn btn-info btn-sm">
+                            แก้ไข
+                          </Link>
+                          {/* 5. เรียกใช้ DeleteButton ด้วย props ที่ถูกต้อง */}
+                          <DeleteButton idToDelete={motion.id} formAction={deleteMotion} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </div>
-  )
+  );
 }

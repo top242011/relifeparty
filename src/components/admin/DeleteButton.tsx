@@ -1,38 +1,61 @@
 // src/components/admin/DeleteButton.tsx
-'use client'
 
-import { createClient } from '../../../utils/supabase/client'
-import { useRouter } from 'next/navigation'
+'use client';
 
-// รับ props เพิ่ม: ชื่อตาราง และ ID ของ record
+import { useState } from 'react';
+import { Modal, Button } from 'react-bootstrap';
+import { useFormStatus } from 'react-dom';
+
 interface DeleteButtonProps {
-  recordId: string;
-  tableName: 'policies' | 'news' | 'events' | 'personnel' | 'committees' | 'meetings' | 'motions'; // กำหนดประเภทของตารางที่รับได้
+  formAction: (payload: FormData) => void;
+  idToDelete: string;
 }
 
-export default function DeleteButton({ recordId, tableName }: DeleteButtonProps) {
-  const router = useRouter()
+/**
+ * Component ปุ่มลบที่ใช้ Modal ของ react-bootstrap ในการยืนยัน
+ * และใช้ Server Action ในการลบข้อมูล
+ */
+export default function DeleteButton({ formAction, idToDelete }: DeleteButtonProps) {
+  const [show, setShow] = useState(false);
 
-  const handleDelete = async () => {
-    if (window.confirm(`คุณแน่ใจหรือไม่ที่จะลบรายการนี้ออกจากตาราง ${tableName}?`)) {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from(tableName) // 👈 ใช้ชื่อตารางจาก props
-        .delete()
-        .eq('id', recordId) // 👈 ใช้ ID จาก props
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
 
-      if (error) {
-        alert(`เกิดข้อผิดพลาด: ${error.message}`)
-      } else {
-        alert('ลบรายการสำเร็จ')
-        router.refresh() // รีเฟรชหน้าเพื่ออัปเดตข้อมูล
-      }
-    }
-  }
+  // Component ย่อยสำหรับปุ่มยืนยันใน Modal เพื่อใช้ useFormStatus
+  const ConfirmDeleteButton = () => {
+    const { pending } = useFormStatus();
+    return (
+      <Button variant="danger" type="submit" disabled={pending}>
+        {pending ? 'กำลังลบ...' : 'ยืนยันการลบ'}
+      </Button>
+    );
+  };
 
   return (
-    <button className="btn btn-danger btn-sm" onClick={handleDelete}>
-      ลบ
-    </button>
-  )
+    <>
+      <Button variant="danger" onClick={handleShow} size="sm">
+        ลบ
+      </Button>
+
+      <Modal show={show} onHide={handleClose} centered>
+        <form action={formAction}>
+            {/* Input ที่ซ่อนไว้เพื่อส่ง ID ไปกับ form data */}
+            <input type="hidden" name="id" value={idToDelete} />
+
+            <Modal.Header closeButton>
+                <Modal.Title>ยืนยันการลบ</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้? การกระทำนี้ไม่สามารถย้อนกลับได้
+            </Modal.Body>
+            <Modal.Footer>
+                <Button variant="secondary" onClick={handleClose}>
+                    ยกเลิก
+                </Button>
+                <ConfirmDeleteButton />
+            </Modal.Footer>
+        </form>
+      </Modal>
+    </>
+  );
 }

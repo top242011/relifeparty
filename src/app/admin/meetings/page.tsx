@@ -1,44 +1,21 @@
 // src/app/admin/meetings/page.tsx
-'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { createClient } from '../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
-import DeleteButton from '@/components/admin/DeleteButton'
+import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import DeleteButton from '@/components/admin/DeleteButton';
+import { deleteMeeting } from '@/lib/actions'; // 1. Import action สำหรับลบ Meeting
 
+// 2. กำหนด Type สำหรับข้อมูล (ควรย้ายไปที่ definitions.ts ในอนาคต)
 interface Meeting {
   id: string;
   date: string;
   topic: string;
-  scope: string; // Add scope
+  scope: string;
 }
 
-export default function AdminMeetingsPage() {
-  const [meetings, setMeetings] = useState<Meeting[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchMeetings = async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('meetings')
-        .select('*')
-        .order('date', { ascending: false })
-
-      if (error) {
-        setError(error.message)
-      } else {
-        setMeetings(data)
-      }
-      setLoading(false)
-    }
-
-    fetchMeetings()
-  }, [])
-
-  const getScopeBadge = (scope: string) => {
+// Helper function สำหรับแสดง Badge ของขอบเขตการประชุม
+const getScopeBadge = (scope: string) => {
     switch (scope) {
       case 'General Assembly': return <span className="badge bg-primary">สภาใหญ่</span>;
       case 'Rangsit': return <span className="badge bg-info text-dark">ศูนย์รังสิต</span>;
@@ -46,53 +23,75 @@ export default function AdminMeetingsPage() {
       case 'Lampang': return <span className="badge bg-secondary">ศูนย์ลำปาง</span>;
       default: return <span className="badge bg-light text-dark">{scope}</span>;
     }
-  }
+};
+
+// 3. เปลี่ยนเป็น Server Component โดยใช้ async
+export default async function AdminMeetingsPage() {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookies().get(name)?.value;
+        },
+      },
+    }
+  );
+
+  // 4. ดึงข้อมูลโดยตรงใน Server Component
+  const { data: meetings, error } = await supabase
+    .from('meetings')
+    .select('*')
+    .order('date', { ascending: false });
 
   return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
-      <main className="container flex-grow-1 py-4">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h1 className="text-dark-blue">จัดการการประชุมสภา</h1>
-          <Link href="/admin/meetings/create" className="btn btn-primary">
-            + เพิ่มการประชุม
-          </Link>
-        </div>
+    <div className="container mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h1 className="text-dark-blue">จัดการการประชุมสภา</h1>
+        <Link href="/admin/meetings/create" className="btn btn-primary">
+          + เพิ่มการประชุม
+        </Link>
+      </div>
 
-        {loading ? (
-          <p>กำลังโหลดข้อมูล...</p>
-        ) : error ? (
-          <div className="alert alert-danger">เกิดข้อผิดพลาด: {error}</div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-hover">
-              <thead className="table-light">
-                <tr>
-                  <th>วันที่ประชุม</th>
-                  <th>หัวข้อหลัก</th>
-                  <th>ขอบเขต</th>
-                  <th className="text-end">การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {meetings.map((meeting) => (
-                  <tr key={meeting.id}>
-                    <td>{new Date(meeting.date).toLocaleDateString('th-TH', { dateStyle: 'long' })}</td>
-                    <td>{meeting.topic}</td>
-                    <td>{getScopeBadge(meeting.scope)}</td>
-                    <td className="text-end">
-                      <Link href={`/admin/meetings/${meeting.id}/edit`} className="btn btn-success btn-sm me-2">
-                        <i className="bi bi-clipboard-check me-1"></i> บันทึกผลการประชุม
-                      </Link>
-                      <DeleteButton recordId={meeting.id} tableName="meetings" />
-                    </td>
+      {error ? (
+        <div className="alert alert-danger">เกิดข้อผิดพลาด: {error.message}</div>
+      ) : (
+        <div className="card">
+          <div className="card-body">
+            <div className="table-responsive">
+              <table className="table table-hover align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th>วันที่ประชุม</th>
+                    <th>หัวข้อหลัก</th>
+                    <th>ขอบเขต</th>
+                    <th className="text-center" style={{ width: '250px' }}>การจัดการ</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {meetings?.map((meeting: Meeting) => (
+                    <tr key={meeting.id}>
+                      <td>{new Date(meeting.date).toLocaleDateString('th-TH', { dateStyle: 'long' })}</td>
+                      <td>{meeting.topic}</td>
+                      <td>{getScopeBadge(meeting.scope)}</td>
+                      <td>
+                        <div className="d-flex justify-content-center gap-2">
+                            <Link href={`/admin/meetings/${meeting.id}/edit`} className="btn btn-success btn-sm">
+                                บันทึกผล
+                            </Link>
+                            {/* 5. เรียกใช้ DeleteButton ด้วย props ที่ถูกต้อง */}
+                            <DeleteButton idToDelete={meeting.id} formAction={deleteMeeting} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </div>
-  )
+  );
 }

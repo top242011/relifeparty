@@ -1,19 +1,35 @@
 // src/app/admin/layout.tsx
-// ไม่ต้องใช้ 'use client' อีกต่อไป
-import { createClient } from '../../../utils/supabase/server'; // 👈 เปลี่ยนไปใช้ server client
-import AuthProvider from './AuthProvider'; // 👈 เรียกใช้ Client Component ที่เราสร้างขึ้น
-import type { ReactNode } from 'react';
 
-// ทำให้ Layout เป็น async Server Component
-export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const supabase = createClient(); // FIX: The user's code was correct, but the toolchain is likely confused. Let's try the official pattern.
-  // ตรวจสอบ user session บน server
-  const { data: { user } } = await supabase.auth.getUser();
+// ไฟล์นี้ "ห้าม" import global css เช่น 'bootstrap.min.css' หรือ './globals.css'
+import { createClient } from "../../../utils/supabase/server";
+import { redirect } from "next/navigation";
+import Sidebar from "@/components/admin/Sidebar";
+import AdminNavbar from "@/components/admin/AdminNavbar";
 
-  // ส่งข้อมูล user ที่ได้จาก server ไปให้ AuthProvider ที่เป็น client component
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return redirect("/admin/login");
+  }
+
   return (
-    <AuthProvider serverUser={user}>
-      {children}
-    </AuthProvider>
+    <div className="d-flex" style={{ minHeight: '100vh' }}>
+      <Sidebar />
+      <div className="flex-grow-1 d-flex flex-column">
+        <AdminNavbar />
+        <main className="flex-grow-1 bg-light p-4">
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }

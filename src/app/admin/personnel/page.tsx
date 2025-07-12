@@ -1,137 +1,96 @@
-'use client';
+// src/app/admin/personnel/page.tsx
 
-import { useState, useEffect, useMemo } from 'react';
-import { createClient } from '../../../../utils/supabase/client';
 import Link from 'next/link';
-// FIX: Imported the next/image component
 import Image from 'next/image';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import DeleteButton from '@/components/admin/DeleteButton';
+import { deletePersonnel } from '@/lib/actions'; // 1. Import action
 
-type Personnel = {
+// 2. กำหนด Type สำหรับข้อมูล
+interface Personnel {
   id: string;
   name: string;
   position: string;
-  image_url: string;
-  created_at: string;
-};
+  image_url: string | null;
+}
 
-type SortConfig = {
-  key: keyof Personnel | null;
-  direction: 'ascending' | 'descending';
-};
-
-export default function PersonnelPage() {
-  const supabase = createClient();
-  const [personnel, setPersonnel] = useState<Personnel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
-
-  useEffect(() => {
-    const fetchPersonnel = async () => {
-      const { data, error } = await supabase
-        .from('personnel')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching personnel:', error);
-      } else {
-        setPersonnel(data);
-      }
-      setLoading(false);
-    };
-    fetchPersonnel();
-  }, [supabase]);
-
-  const sortedItems = useMemo(() => {
-    // FIX: Changed 'let' to 'const' as sortableItems is not reassigned.
-    const sortableItems = [...personnel];
-    if (sortConfig.key !== null) {
-      sortableItems.sort((a, b) => {
-        const key = sortConfig.key as keyof Personnel;
-        if (a[key]! < b[key]!) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (a[key]! > b[key]!) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
-      });
+// 3. เปลี่ยนเป็น Server Component
+export default async function AdminPersonnelPage() {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookies().get(name)?.value;
+        },
+      },
     }
-    return sortableItems;
-  }, [personnel, sortConfig]);
+  );
 
-  const requestSort = (key: keyof Personnel) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIndicator = (key: keyof Personnel) => {
-    if (sortConfig.key !== key) {
-      return '';
-    }
-    return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
-  };
-
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  // 4. ดึงข้อมูลโดยตรง
+  const { data: personnel, error } = await supabase
+    .from('personnel')
+    .select('*')
+    .order('name', { ascending: true });
 
   return (
-    <div className="container p-4 mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Manage Personnel</h1>
-        <Link href="/admin/personnel/create" className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
-          Add New Personnel
+    <div className="container mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h1 className="text-dark-blue">จัดการบุคลากร</h1>
+        <Link href="/admin/personnel/create" className="btn btn-primary">
+          + เพิ่มบุคลากรใหม่
         </Link>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white">
-          <thead>
-            <tr>
-              <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">
-                <button onClick={() => requestSort('name')}>
-                  Name {getSortIndicator('name')}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">
-                <button onClick={() => requestSort('position')}>
-                  Position {getSortIndicator('position')}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b-2 border-gray-200">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedItems.map((person) => (
-              <tr key={person.id}>
-                <td className="flex items-center px-6 py-4 whitespace-nowrap">
-                  {/* FIX: Replaced <img> with next/image <Image> for optimization */}
-                  <Image
-                    src={person.image_url || '/default-avatar.png'}
-                    alt={person.name}
-                    width={40}
-                    height={40}
-                    className="object-cover w-10 h-10 rounded-full"
-                  />
-                  <span className="ml-4">{person.name}</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">{person.position}</td>
-                <td className="flex px-6 py-4 space-x-2 whitespace-nowrap">
-                  <Link href={`/admin/personnel/${person.id}/edit`} className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
-                    Edit
-                  </Link>
-                  <DeleteButton recordId={person.id} tableName="personnel" />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      {error ? (
+        <div className="alert alert-danger">เกิดข้อผิดพลาด: {error.message}</div>
+      ) : (
+        <div className="card">
+          <div className="card-body">
+            <div className="table-responsive">
+              <table className="table table-hover align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th style={{width: '50px'}}>รูป</th>
+                    <th>ชื่อ-นามสกุล</th>
+                    <th>ตำแหน่ง</th>
+                    <th className="text-center" style={{ width: '150px' }}>การจัดการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {personnel?.map((person: Personnel) => (
+                    <tr key={person.id}>
+                      <td>
+                        <Image
+                          src={person.image_url || 'https://placehold.co/100x100/EFEFEF/AAAAAA&text=No+Image'}
+                          alt={`รูปของ ${person.name}`}
+                          width={40}
+                          height={40}
+                          className="rounded-circle"
+                          style={{ objectFit: 'cover' }}
+                        />
+                      </td>
+                      <td>{person.name}</td>
+                      <td>{person.position}</td>
+                      <td>
+                        <div className="d-flex justify-content-center gap-2">
+                          <Link href={`/admin/personnel/${person.id}/edit`} className="btn btn-info btn-sm">
+                            แก้ไข
+                          </Link>
+                          {/* 5. เรียกใช้ DeleteButton ด้วย props ที่ถูกต้อง */}
+                          <DeleteButton idToDelete={person.id} formAction={deletePersonnel} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

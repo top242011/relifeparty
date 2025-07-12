@@ -1,94 +1,86 @@
-// src/components/admin/PoliciesTable.tsx
-import Link from "next/link";
-import DeleteButton from "./DeleteButton"; // Assuming DeleteButton exists and works
-import { FileText, Edit, Trash2 } from "lucide-react";
+// src/app/admin/policies/page.tsx
 
-// Define the type for a single policy object
-type Policy = {
-  id: string;
-  title: string;
-  description: string;
-  file_url: string;
-  created_at: string;
-};
+import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { Policy } from '@/lib/definitions';
+import DeleteButton from '@/components/admin/DeleteButton';
+import { deletePolicy } from '@/lib/actions'; // Import Server Action สำหรับลบ
 
-export default function PoliciesTable({ policies }: { policies: Policy[] }) {
-  if (policies.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-white rounded-lg shadow-md">
-        <FileText className="w-16 h-16 text-gray-300" />
-        <h3 className="mt-4 text-xl font-semibold text-gray-700">
-          ยังไม่มีนโยบาย
-        </h3>
-        <p className="mt-1 text-sm text-gray-500">
-          เริ่มต้นโดยการเพิ่มนโยบายใหม่
-        </p>
-      </div>
-    );
+export const dynamic = 'force-dynamic';
+
+export default async function PoliciesPage() {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookies().get(name)?.value;
+        },
+      },
+    }
+  );
+
+  const { data: policies, error } = await supabase
+    .from('policies')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return <p className="text-danger">Error fetching policies: {error.message}</p>;
   }
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                หัวข้อ
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                คำอธิบาย
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                วันที่สร้าง
-              </th>
-              <th scope="col" className="relative px-6 py-3">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {policies.map((policy) => (
-              <tr key={policy.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {policy.title}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-normal">
-                  <div className="text-sm text-gray-600 max-w-md truncate">
-                    {policy.description}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(policy.created_at).toLocaleDateString("th-TH")}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <div className="flex items-center justify-end space-x-4">
-                    <Link
-                      href={`/admin/policies/${policy.id}/edit`}
-                      className="text-indigo-600 hover:text-indigo-900 flex items-center"
-                    >
-                      <Edit className="w-4 h-4 mr-1" />
-                      แก้ไข
-                    </Link>
-                    {/* Make sure the DeleteButton component is adapted for this */}
-                    <DeleteButton recordId={policy.id} tableName="policies" />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="container mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h1>จัดการนโยบาย</h1>
+        <Link href="/admin/policies/create" className="btn btn-success">
+          + สร้างใหม่
+        </Link>
+      </div>
+
+      <div className="card">
+        <div className="card-body">
+          <div className="table-responsive">
+            <table className="table table-striped table-hover align-middle">
+              <thead>
+                <tr>
+                  <th scope="col">ชื่อนโยบาย</th>
+                  <th scope="col">รายละเอียด</th>
+                  <th scope="col" style={{ width: '150px', textAlign: 'center' }}>
+                    การจัดการ
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {policies?.map((policy: Policy) => (
+                  <tr key={policy.id}>
+                    <td>{policy.title}</td>
+                    <td>{policy.description || '-'}</td>
+                    <td>
+                      <div className="d-flex justify-content-center gap-2">
+                        <Link
+                          href={`/admin/policies/${policy.id}/edit`}
+                          className="btn btn-primary btn-sm"
+                        >
+                          แก้ไข
+                        </Link>
+                        
+                        {/* --- จุดที่แก้ไข ---
+                          - เปลี่ยน prop `id` เป็น `idToDelete`
+                          - เพิ่ม prop `formAction` และส่ง Server Action `deletePolicy` เข้าไป
+                        */}
+                        <DeleteButton idToDelete={policy.id} formAction={deletePolicy} />
+
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

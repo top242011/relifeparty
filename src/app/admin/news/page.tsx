@@ -1,87 +1,87 @@
 // src/app/admin/news/page.tsx
-'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { createClient } from '../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
-import DeleteButton from '@/components/admin/DeleteButton' // 1. ตรวจสอบว่า import DeleteButton มาถูกต้อง
+import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import DeleteButton from '@/components/admin/DeleteButton';
+import { deleteNews } from '@/lib/actions'; // 1. Import action
 
+// 2. กำหนด Type สำหรับข้อมูล
 interface NewsArticle {
   id: string;
   title: string;
-  publishDate: string;
-  created_at: string;
+  publishDate: string; // ISO 8601 string
 }
 
-export default function AdminNewsPage() {
-  const [news, setNews] = useState<NewsArticle[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchNews = async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('news')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        setError(error.message)
-      } else {
-        setNews(data)
-      }
-      setLoading(false)
+// 3. เปลี่ยนเป็น Server Component
+export default async function AdminNewsPage() {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookies().get(name)?.value;
+        },
+      },
     }
+  );
 
-    fetchNews()
-  }, [])
+  // 4. ดึงข้อมูลโดยตรง
+  const { data: news, error } = await supabase
+    .from('news')
+    .select('*')
+    .order('publishDate', { ascending: false });
 
   return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
-      <main className="container flex-grow-1 py-4">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h1 className="text-dark-blue">จัดการข่าวสาร</h1>
-          <Link href="/admin/news/create" className="btn btn-primary">
-            + เพิ่มข่าวใหม่
-          </Link>
-        </div>
+    <div className="container mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h1 className="text-dark-blue">จัดการข่าวสาร</h1>
+        <Link href="/admin/news/create" className="btn btn-primary">
+          + เพิ่มข่าวใหม่
+        </Link>
+      </div>
 
-        {loading ? (
-          <p>กำลังโหลดข้อมูลข่าวสาร...</p>
-        ) : error ? (
-          <div className="alert alert-danger">เกิดข้อผิดพลาด: {error}</div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-striped table-hover shadow-sm rounded overflow-hidden">
-              <thead className="bg-primary text-white">
-                <tr>
-                  <th scope="col">หัวข้อข่าว</th>
-                  <th scope="col">วันที่เผยแพร่</th>
-                  <th scope="col">สร้างเมื่อ</th>
-                  <th scope="col">การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {news.map((article) => (
-                  <tr key={article.id}>
-                    <td>{article.title}</td>
-                    <td>{new Date(article.publishDate).toLocaleDateString('th-TH')}</td>
-                    <td>{new Date(article.created_at).toLocaleDateString('th-TH')}</td>
-                    <td>
-                      <Link href={`/admin/news/${article.id}/edit`} className="btn btn-info btn-sm me-2">แก้ไข</Link>
-                      {/* 2. แก้ไข props จาก policyId เป็น recordId */}
-                      <DeleteButton recordId={article.id} tableName="news" />
-                    </td>
+      {error ? (
+        <div className="alert alert-danger">เกิดข้อผิดพลาด: {error.message}</div>
+      ) : (
+        <div className="card">
+          <div className="card-body">
+            <div className="table-responsive">
+              <table className="table table-hover align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th>หัวข้อข่าว</th>
+                    <th>วันที่เผยแพร่</th>
+                    <th className="text-center" style={{ width: '150px' }}>การจัดการ</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {news?.map((article: NewsArticle) => (
+                    <tr key={article.id}>
+                      <td>{article.title}</td>
+                      <td>{new Date(article.publishDate).toLocaleDateString('th-TH', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                      })}</td>
+                      <td>
+                        <div className="d-flex justify-content-center gap-2">
+                          <Link href={`/admin/news/${article.id}/edit`} className="btn btn-info btn-sm">
+                            แก้ไข
+                          </Link>
+                          {/* 5. เรียกใช้ DeleteButton ด้วย props ที่ถูกต้อง */}
+                          <DeleteButton idToDelete={article.id} formAction={deleteNews} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </div>
-  )
+  );
 }
