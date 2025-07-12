@@ -4,7 +4,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
 import Link from 'next/link'
 
 export default function CreateEventPage() {
@@ -45,7 +44,6 @@ export default function CreateEventPage() {
 
   return (
     <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
       <main className="container flex-grow-1 py-4">
         <h1 className="mb-4 text-dark-blue">เพิ่มกิจกรรมใหม่</h1>
         <div className="card shadow-sm p-4">

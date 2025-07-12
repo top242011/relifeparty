@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
 
 export default function AdminDashboardPage() {
   const supabase = createClient()
@@ -19,7 +18,6 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
       <main className="container flex-grow-1 py-4">
         <h1 className="mb-4 text-dark-blue">Admin Dashboard</h1>
         <p className="mt-4 text-dark-blue">

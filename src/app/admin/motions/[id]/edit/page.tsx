@@ -4,7 +4,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '../../../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
 import Link from 'next/link'
 
 // --- Define Types ---
@@ -140,7 +139,6 @@ export default function EditMotionPage() {
 
   return (
     <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
       <main className="container flex-grow-1 py-4">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h1 className="mb-0">แก้ไขญัตติและบันทึกผลโหวต</h1>

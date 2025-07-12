@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../../../../utils/supabase/client'
-import AdminNavbar from '@/components/admin/AdminNavbar'
 import Link from 'next/link'
 
 interface Meeting { id: string; topic: string; date: string; }
@@ -62,7 +61,6 @@ export default function CreateMotionPage() {
 
   return (
     <div className="d-flex flex-column min-vh-100 bg-light">
-      <AdminNavbar />
       <main className="container flex-grow-1 py-4">
         <h1 className="mb-4">เสนอญัตติใหม่</h1>
         <div className="card shadow-sm p-4">
