@@ -4,16 +4,14 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import DeleteButton from '@/components/admin/DeleteButton';
-import { deleteNews } from '@/lib/actions'; // 1. Import action
+import { deleteNews } from '@/lib/actions';
 
-// 2. กำหนด Type สำหรับข้อมูล
 interface NewsArticle {
   id: string;
   title: string;
-  publishDate: string; // ISO 8601 string
+  publishDate: string;
 }
 
-// 3. เปลี่ยนเป็น Server Component
 export default async function AdminNewsPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,14 +25,13 @@ export default async function AdminNewsPage() {
     }
   );
 
-  // 4. ดึงข้อมูลโดยตรง
   const { data: news, error } = await supabase
     .from('news')
     .select('*')
     .order('publishDate', { ascending: false });
 
   return (
-    <div className="container mt-4">
+    <>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h1 className="text-dark-blue">จัดการข่าวสาร</h1>
         <Link href="/admin/news/create" className="btn btn-primary">
@@ -70,7 +67,6 @@ export default async function AdminNewsPage() {
                           <Link href={`/admin/news/${article.id}/edit`} className="btn btn-info btn-sm">
                             แก้ไข
                           </Link>
-                          {/* 5. เรียกใช้ DeleteButton ด้วย props ที่ถูกต้อง */}
                           <DeleteButton idToDelete={article.id} formAction={deleteNews} />
                         </div>
                       </td>
@@ -82,6 +78,6 @@ export default async function AdminNewsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

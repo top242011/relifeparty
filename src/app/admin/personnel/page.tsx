@@ -5,9 +5,8 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import DeleteButton from '@/components/admin/DeleteButton';
-import { deletePersonnel } from '@/lib/actions'; // 1. Import action
+import { deletePersonnel } from '@/lib/actions';
 
-// 2. กำหนด Type สำหรับข้อมูล
 interface Personnel {
   id: string;
   name: string;
@@ -15,7 +14,6 @@ interface Personnel {
   image_url: string | null;
 }
 
-// 3. เปลี่ยนเป็น Server Component
 export default async function AdminPersonnelPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,14 +27,13 @@ export default async function AdminPersonnelPage() {
     }
   );
 
-  // 4. ดึงข้อมูลโดยตรง
   const { data: personnel, error } = await supabase
     .from('personnel')
     .select('*')
     .order('name', { ascending: true });
 
   return (
-    <div className="container mt-4">
+    <>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h1 className="text-dark-blue">จัดการบุคลากร</h1>
         <Link href="/admin/personnel/create" className="btn btn-primary">
@@ -79,7 +76,6 @@ export default async function AdminPersonnelPage() {
                           <Link href={`/admin/personnel/${person.id}/edit`} className="btn btn-info btn-sm">
                             แก้ไข
                           </Link>
-                          {/* 5. เรียกใช้ DeleteButton ด้วย props ที่ถูกต้อง */}
                           <DeleteButton idToDelete={person.id} formAction={deletePersonnel} />
                         </div>
                       </td>
@@ -91,6 +87,6 @@ export default async function AdminPersonnelPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -4,9 +4,8 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import DeleteButton from '@/components/admin/DeleteButton';
-import { deleteMeeting } from '@/lib/actions'; // 1. Import action สำหรับลบ Meeting
+import { deleteMeeting } from '@/lib/actions';
 
-// 2. กำหนด Type สำหรับข้อมูล (ควรย้ายไปที่ definitions.ts ในอนาคต)
 interface Meeting {
   id: string;
   date: string;
@@ -14,7 +13,6 @@ interface Meeting {
   scope: string;
 }
 
-// Helper function สำหรับแสดง Badge ของขอบเขตการประชุม
 const getScopeBadge = (scope: string) => {
     switch (scope) {
       case 'General Assembly': return <span className="badge bg-primary">สภาใหญ่</span>;
@@ -25,7 +23,6 @@ const getScopeBadge = (scope: string) => {
     }
 };
 
-// 3. เปลี่ยนเป็น Server Component โดยใช้ async
 export default async function AdminMeetingsPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,14 +36,13 @@ export default async function AdminMeetingsPage() {
     }
   );
 
-  // 4. ดึงข้อมูลโดยตรงใน Server Component
   const { data: meetings, error } = await supabase
     .from('meetings')
     .select('*')
     .order('date', { ascending: false });
 
   return (
-    <div className="container mt-4">
+    <>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h1 className="text-dark-blue">จัดการการประชุมสภา</h1>
         <Link href="/admin/meetings/create" className="btn btn-primary">
@@ -80,7 +76,6 @@ export default async function AdminMeetingsPage() {
                             <Link href={`/admin/meetings/${meeting.id}/edit`} className="btn btn-success btn-sm">
                                 บันทึกผล
                             </Link>
-                            {/* 5. เรียกใช้ DeleteButton ด้วย props ที่ถูกต้อง */}
                             <DeleteButton idToDelete={meeting.id} formAction={deleteMeeting} />
                         </div>
                       </td>
@@ -92,6 +87,6 @@ export default async function AdminMeetingsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
