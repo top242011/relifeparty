@@ -2,7 +2,8 @@
 import { createClient } from '../../../../../../utils/supabase/server';
 import { notFound } from 'next/navigation';
 import EditMeetingForm from './EditMeetingForm';
-import type { Meeting, MeetingFile } from '@/lib/definitions';
+import { fetchAttendanceData } from '@/lib/data'; // 1. Import ฟังก์ชันใหม่
+import type { Meeting, MeetingFile, AttendanceRecordWithPersonnel } from '@/lib/definitions';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,25 +11,29 @@ export default async function EditMeetingPage({ params }: { params: { id: string
   const supabase = createClient();
   const { id } = params;
 
-  // ดึงข้อมูลการประชุมและไฟล์แนบทั้งหมดบน Server Component
-  const [meetingResult, filesResult] = await Promise.all([
+  // 2. ดึงข้อมูลทั้งหมดพร้อมกัน (การประชุม, ไฟล์, และการเข้าประชุม)
+  const [meetingResult, filesResult, attendanceResult] = await Promise.all([
     supabase.from('meetings').select('*').eq('id', id).single(),
-    supabase.from('meeting_files').select('*').eq('meeting_id', id)
+    supabase.from('meeting_files').select('*').eq('meeting_id', id),
+    fetchAttendanceData(id) // 3. เรียกใช้ฟังก์ชันดึงข้อมูลการเข้าประชุม
   ]);
 
   const { data: meeting, error: meetingError } = meetingResult;
   const { data: files, error: filesError } = filesResult;
 
-  // ถ้าไม่พบข้อมูลการประชุมหลัก ให้แสดงหน้า 404 Not Found
   if (meetingError || !meeting) {
     notFound();
   }
-
-  // หากดึงไฟล์ไม่สำเร็จ ให้แสดง log แต่ยังคงทำงานต่อไปได้
   if (filesError) {
       console.error("Error fetching meeting files:", filesError.message);
   }
   
-  // ส่งข้อมูลที่ดึงได้ทั้งหมดไปยัง Client Component (EditMeetingForm) เป็น props
-  return <EditMeetingForm meeting={meeting as Meeting} initialFiles={files || []} />;
+  // 4. ส่งข้อมูลทั้งหมด รวมถึง initialAttendance ไปให้ Client Component
+  return (
+    <EditMeetingForm 
+      meeting={meeting as Meeting} 
+      initialFiles={files || []}
+      initialAttendance={attendanceResult || []}
+    />
+  );
 }

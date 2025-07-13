@@ -1,5 +1,9 @@
 // src/lib/definitions.ts
 
+/**
+ * This file is the central repository for all TypeScript Type Definitions used in the project.
+ */
+
 // Type for the state of a form used with the useFormState Hook
 export type FormState = {
   errors?: {
@@ -14,7 +18,7 @@ export type FormState = {
     details?: string;
   };
   message?: string | null;
-  success?: boolean; // <-- เพิ่ม property นี้เพื่อบอกสถานะสำเร็จ
+  success?: boolean;
 };
 
 // --- Data Model Types ---
@@ -83,4 +87,16 @@ export type Motion = {
   meeting_id: string | null;
   result: string | null;
   created_at: string;
+};
+
+// --- Added for Attendance Tracking Feature ---
+
+// Type for attendance records that includes personnel information
+export type AttendanceRecordWithPersonnel = {
+  personnel_id: string;
+  status: 'เข้าประชุม' | 'ลา' | 'ขาด';
+  personnel: {
+    name: string;
+    campus: string;
+  };
 };

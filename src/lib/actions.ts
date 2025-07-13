@@ -15,51 +15,13 @@ const BaseSchema = z.object({
   id: z.string().optional(),
   description: z.string().optional(),
 });
-
-const PolicySchema = BaseSchema.extend({
-  title: z.string().min(1, 'กรุณากรอกชื่อนโยบาย'),
-});
-
-const CommitteeSchema = BaseSchema.extend({
-  name: z.string().min(1, 'กรุณากรอกชื่อคณะกรรมาธิการ'),
-});
-
-const EventSchema = BaseSchema.extend({
-  title: z.string().min(1, 'กรุณากรอกชื่อกิจกรรม'),
-  description: z.string().min(1, 'กรุณากรอกรายละเอียด'),
-  eventDate: z.string().min(1, 'กรุณาเลือกวันที่'),
-  location: z.string().optional(),
-});
-
-const NewsSchema = BaseSchema.extend({
-    title: z.string().min(1, 'กรุณากรอกหัวข้อข่าว'),
-    content: z.string().min(1, 'กรุณากรอกเนื้อหาข่าว'),
-    publishDate: z.string().min(1, 'กรุณาเลือกวันที่เผยแพร่'),
-    imageUrl: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')),
-});
-
-const PersonnelSchema = BaseSchema.extend({
-    name: z.string().min(1, 'กรุณากรอกชื่อ-นามสกุล'),
-    position: z.string().min(1, 'กรุณากรอกตำแหน่ง'),
-    bio: z.string().optional(),
-    image_url: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')),
-    is_active: z.boolean(),
-    role: z.string(),
-    campus: z.string(),
-});
-
-const MeetingSchema = BaseSchema.extend({
-    topic: z.string().min(1, 'กรุณากรอกหัวข้อการประชุม'),
-    date: z.string().min(1, 'กรุณาเลือกวันที่ประชุม'),
-    scope: z.string(),
-});
-
-const MotionSchema = BaseSchema.extend({
-    title: z.string().min(1, 'กรุณากรอกชื่อญัตติ'),
-    details: z.string().optional(),
-    meeting_id: z.string().optional().nullable(),
-    proposer_id: z.string().optional().nullable(),
-});
+const PolicySchema = BaseSchema.extend({ title: z.string().min(1, 'กรุณากรอกชื่อนโยบาย') });
+const CommitteeSchema = BaseSchema.extend({ name: z.string().min(1, 'กรุณากรอกชื่อคณะกรรมาธิการ') });
+const EventSchema = BaseSchema.extend({ title: z.string().min(1, 'กรุณากรอกชื่อกิจกรรม'), description: z.string().min(1, 'กรุณากรอกรายละเอียด'), eventDate: z.string().min(1, 'กรุณาเลือกวันที่'), location: z.string().optional() });
+const NewsSchema = BaseSchema.extend({ title: z.string().min(1, 'กรุณากรอกหัวข้อข่าว'), content: z.string().min(1, 'กรุณากรอกเนื้อหาข่าว'), publishDate: z.string().min(1, 'กรุณาเลือกวันที่เผยแพร่'), imageUrl: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')) });
+const PersonnelSchema = BaseSchema.extend({ name: z.string().min(1, 'กรุณากรอกชื่อ-นามสกุล'), position: z.string().min(1, 'กรุณากรอกตำแหน่ง'), bio: z.string().optional(), image_url: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')), is_active: z.boolean(), role: z.string(), campus: z.string() });
+const MeetingSchema = BaseSchema.extend({ topic: z.string().min(1, 'กรุณากรอกหัวข้อการประชุม'), date: z.string().min(1, 'กรุณาเลือกวันที่ประชุม'), scope: z.string() });
+const MotionSchema = BaseSchema.extend({ title: z.string().min(1, 'กรุณากรอกชื่อญัตติ'), details: z.string().optional(), meeting_id: z.string().optional().nullable(), proposer_id: z.string().optional().nullable() });
 
 
 // --- Generic Create/Update/Delete Functions ---
@@ -82,7 +44,7 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
     const validatedFields = schema.safeParse(dataToValidate);
 
     if (!validatedFields.success) {
-        return { errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบ' };
+        return { success: false, errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบ' };
     }
 
     const { id, ...data } = validatedFields.data;
@@ -92,19 +54,21 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
         if (action === 'create') {
             ({ error } = await supabase.from(tableName).insert(data));
         } else {
-            if (!id) return { message: 'ไม่พบ ID สำหรับการอัปเดต' };
+            if (!id) return { success: false, message: 'ไม่พบ ID สำหรับการอัปเดต' };
             ({ error } = await supabase.from(tableName).update(data).eq('id', id));
         }
         if (error) throw error;
     } catch (e: any) {
-        return { message: `Database Error: ${e.message}` };
+        return { success: false, message: `Database Error: ${e.message}` };
     }
 
     revalidatePath(redirectPath);
     if (action === 'update' && id) {
         revalidatePath(`${redirectPath}/${id}/edit`);
     }
-    redirect(redirectPath);
+
+    const successMessage = action === 'create' ? 'สร้างข้อมูลสำเร็จ!' : 'อัปเดตข้อมูลสำเร็จ!';
+    return { success: true, message: successMessage };
 }
 
 async function deleteItem(formData: FormData, tableName: string, revalidatePathUrl: string) {
@@ -147,8 +111,6 @@ export const deleteMeeting = (formData: FormData) => deleteItem(formData, 'meeti
 export const createMotion = (prevState: FormState, formData: FormData) => handleFormAction(formData, MotionSchema.omit({ id: true }), 'motions', '/admin/motions', 'create');
 export const deleteMotion = (formData: FormData) => deleteItem(formData, 'motions', '/admin/motions');
 
-// --- โค้ดที่เพิ่มเข้ามาสำหรับระบบลงมติ ---
-
 export async function updateMotionResult(motionId: string, result: 'ผ่าน' | 'ไม่ผ่าน' | 'รอลงมติ') {
   'use server';
   const supabase = createClient();
@@ -163,6 +125,45 @@ export async function updateMotionResult(motionId: string, result: 'ผ่าน
     revalidatePath('/admin/motions');
     revalidatePath(`/admin/motions/${motionId}/edit`);
     return { success: true, message: 'อัปเดตผลการลงมติสำเร็จ!' };
+  } catch (e: any) {
+    return { success: false, message: `Database Error: ${e.message}` };
+  }
+}
+
+// --- Added for Attendance Tracking Feature ---
+
+export async function updateAttendance(meetingId: string, formData: FormData) {
+  'use server';
+  const supabase = createClient();
+
+  // Convert formData to a plain object
+  const rawData = Object.fromEntries(formData.entries());
+  
+  const recordsToUpsert = Object.entries(rawData)
+    .filter(([key]) => key.startsWith('status-')) // Filter for status inputs only
+    .map(([key, status]) => {
+      const personnel_id = key.replace('status-', '');
+      return {
+        meeting_id: meetingId,
+        personnel_id: personnel_id,
+        status: status as string,
+      };
+    });
+
+  if (recordsToUpsert.length === 0) {
+    return { success: false, message: 'ไม่พบข้อมูลการเข้าประชุมที่จะบันทึก' };
+  }
+
+  try {
+    // Use .upsert() to create or update records in a single batch
+    const { error } = await supabase
+      .from('attendance_records')
+      .upsert(recordsToUpsert, { onConflict: 'meeting_id, personnel_id' });
+
+    if (error) throw error;
+
+    revalidatePath(`/admin/meetings/${meetingId}/edit`);
+    return { success: true, message: 'บันทึกข้อมูลการเข้าประชุมสำเร็จ!' };
   } catch (e: any) {
     return { success: false, message: `Database Error: ${e.message}` };
   }

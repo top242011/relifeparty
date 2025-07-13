@@ -1,29 +1,28 @@
 // src/lib/data.ts
 import { createClient } from '../../utils/supabase/server';
 import { unstable_noStore as noStore } from 'next/cache';
+import type { AttendanceRecordWithPersonnel } from './definitions';
 
-const ITEMS_PER_PAGE = 10; // กำหนดจำนวนรายการต่อหน้า
+const ITEMS_PER_PAGE = 10;
 
-// --- ฟังก์ชันเดิมสำหรับการค้นหาและแบ่งหน้าบุคลากร ---
+// --- Functions for Personnel Search & Pagination ---
 
-// ฟังก์ชันสำหรับดึงข้อมูลบุคลากรแบบมีเงื่อนไข (ค้นหาและแบ่งหน้า)
 export async function fetchFilteredPersonnel(
   query: string,
   currentPage: number,
 ) {
-  noStore(); // ป้องกันการ Caching ของข้อมูลนี้
+  noStore();
   const supabase = createClient();
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   try {
     let supabaseQuery = supabase
       .from('personnel')
-      .select('*', { count: 'exact' }) // ดึงข้อมูลพร้อมกับนับจำนวนทั้งหมด
+      .select('*', { count: 'exact' })
       .order('name', { ascending: true })
       .range(offset, offset + ITEMS_PER_PAGE - 1);
 
     if (query) {
-      // ใช้ 'ilike' สำหรับการค้นหาแบบ case-insensitive ในคอลัมน์ name และ position
       supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,position.ilike.%${query}%`);
     }
 
@@ -41,14 +40,13 @@ export async function fetchFilteredPersonnel(
   }
 }
 
-// ฟังก์ชันสำหรับคำนวณจำนวนหน้าทั้งหมดของบุคลากร
 export async function fetchPersonnelPages(query: string) {
     noStore();
     const supabase = createClient();
     try {
         let supabaseQuery = supabase
             .from('personnel')
-            .select('id', { count: 'exact', head: true }); // นับจำนวนแถวโดยไม่ดึงข้อมูล
+            .select('id', { count: 'exact', head: true });
 
         if (query) {
             supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,position.ilike.%${query}%`);
@@ -69,15 +67,12 @@ export async function fetchPersonnelPages(query: string) {
     }
 }
 
+// --- Functions for Dashboard ---
 
-// --- ฟังก์ชันใหม่ที่เพิ่มเข้ามาสำหรับ Dashboard ---
-
-// ฟังก์ชันสำหรับดึงข้อมูลสรุปสำหรับแสดงบนการ์ด
 export async function fetchCardData() {
   noStore();
   const supabase = createClient();
   try {
-    // ดึงข้อมูลการนับจำนวนพร้อมกันทั้งหมดเพื่อประสิทธิภาพสูงสุด
     const [
       { count: personnelCount },
       { count: policiesCount },
@@ -102,7 +97,6 @@ export async function fetchCardData() {
   }
 }
 
-// ฟังก์ชันสำหรับดึง 5 กิจกรรมล่าสุด
 export async function fetchLatestEvents() {
     noStore();
     const supabase = createClient();
@@ -110,7 +104,7 @@ export async function fetchLatestEvents() {
         const { data, error } = await supabase
             .from('events')
             .select('*')
-            .order('eventDate', { ascending: false }) // เรียงจากวันที่ล่าสุดไปเก่าสุด
+            .order('eventDate', { ascending: false })
             .limit(5);
 
         if (error) {
@@ -121,4 +115,44 @@ export async function fetchLatestEvents() {
         console.error('Database Error:', error);
         throw new Error('Failed to fetch latest events.');
     }
+}
+
+// --- Function for Attendance Tracking Feature ---
+
+export async function fetchAttendanceData(meetingId: string) {
+  noStore();
+  const supabase = createClient();
+  try {
+    const { data: allPersonnel, error: personnelError } = await supabase
+      .from('personnel')
+      .select('id, name, campus')
+      .eq('is_active', true)
+      .order('name');
+
+    if (personnelError) throw personnelError;
+
+    const { data: existingRecords, error: recordsError } = await supabase
+      .from('attendance_records')
+      .select('personnel_id, status')
+      .eq('meeting_id', meetingId);
+    
+    if (recordsError) throw recordsError;
+
+    const attendanceData = allPersonnel.map(person => {
+      const record = existingRecords.find(r => r.personnel_id === person.id);
+      return {
+        personnel_id: person.id,
+        status: record?.status || 'ขาด',
+        personnel: {
+          name: person.name,
+          campus: person.campus,
+        },
+      };
+    });
+
+    return attendanceData as AttendanceRecordWithPersonnel[];
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch attendance data.');
+  }
 }
