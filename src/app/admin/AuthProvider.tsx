@@ -6,7 +6,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
 
-// Component นี้จะรับผิดชอบ Logic ฝั่ง Client ทั้งหมด
 export default function AuthProvider({
   serverUser,
   children,
@@ -18,19 +17,20 @@ export default function AuthProvider({
   const pathname = usePathname();
 
   useEffect(() => {
-    // ตรวจสอบข้อมูล user ที่ส่งมาจาก Server Component
-    // ถ้าไม่มี user และไม่ได้อยู่ที่หน้า login ให้ redirect
+    // Logic การ Redirect จะทำงานที่นี่
+    // ถ้าไม่มี user และ "ไม่ได้" อยู่ที่หน้า login ให้ redirect ไปที่หน้า login
     if (!serverUser && pathname !== '/admin/login') {
       router.push('/admin/login');
     }
   }, [serverUser, pathname, router]);
 
-  // ถ้ามี user หรืออยู่ที่หน้า login ก็ให้แสดงเนื้อหาของ Page นั้นๆ
+  // ถ้ามี user หรือ อยู่ที่หน้า login อยู่แล้ว ก็ให้แสดงเนื้อหาของ Page นั้นๆ
   if (serverUser || pathname === '/admin/login') {
     return <>{children}</>;
   }
 
   // ระหว่างรอ redirect หรือตรวจสอบ ให้แสดงหน้า Loading
+  // นี่คือสิ่งที่ผู้ใช้อาจเห็นแวบเดียวก่อนถูก redirect
   return (
       <div className="d-flex justify-content-center align-items-center vh-100">
         <div className="spinner-border" role="status">
