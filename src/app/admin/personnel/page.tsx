@@ -1,12 +1,14 @@
 // src/app/admin/personnel/page.tsx
 import Link from 'next/link';
 import Image from 'next/image';
-import { fetchFilteredPersonnel, fetchPersonnelPages } from '@/lib/data';
-import type { Personnel } from '@/lib/definitions';
-import Search from '../../../components/admin/Search';
+import { fetchFilteredPersonnel, fetchPersonnelPages, fetchAllCommittees } from '@/lib/data';
+import type { Personnel, Committee } from '@/lib/definitions';
+import Search from '@/components/admin/Search';
 import Pagination from '@/components/admin/Pagination';
 import DeleteButton from '@/components/admin/DeleteButton';
 import { deletePersonnel } from '@/lib/actions';
+import { Filter, ArrowUpDown } from 'lucide-react';
+import PersonnelSort from '../../../components/admin/PersonnelSort'; // New component for sorting
 
 export default async function AdminPersonnelPage({
   searchParams,
@@ -14,15 +16,28 @@ export default async function AdminPersonnelPage({
   searchParams?: {
     query?: string;
     page?: string;
+    campus?: string;
+    committeeId?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
   };
 }) {
   const query = searchParams?.query || '';
   const currentPage = Number(searchParams?.page) || 1;
+  const campus = searchParams?.campus || null;
+  const committeeId = searchParams?.committeeId || null;
+  const sortBy = searchParams?.sortBy || 'name';
+  const sortOrder = searchParams?.sortOrder || 'asc';
 
-  // ดึงข้อมูลจำนวนหน้าและข้อมูลบุคลากรพร้อมกัน
-  const [totalPages, { data: personnel }] = await Promise.all([
-    fetchPersonnelPages(query),
-    fetchFilteredPersonnel(query, currentPage)
+  // Fetch data concurrently
+  const [
+    { data: personnel, count },
+    totalPages,
+    committees
+  ] = await Promise.all([
+    fetchFilteredPersonnel(query, currentPage, campus, committeeId, sortBy, sortOrder),
+    fetchPersonnelPages(query, campus, committeeId),
+    fetchAllCommittees()
   ]);
 
   return (
@@ -36,7 +51,14 @@ export default async function AdminPersonnelPage({
 
       <div className="card shadow-sm">
         <div className="card-header bg-white p-3">
-            <Search placeholder="ค้นหาชื่อหรือตำแหน่ง..." />
+          <div className="row g-2 align-items-center">
+            <div className="col-lg-5">
+              <Search placeholder="ค้นหาชื่อหรือตำแหน่ง..." />
+            </div>
+            <div className="col-lg-7">
+              <PersonnelSort committees={committees} />
+            </div>
+          </div>
         </div>
         <div className="card-body p-0">
           <div className="table-responsive">
@@ -46,6 +68,7 @@ export default async function AdminPersonnelPage({
                   <th style={{width: '80px'}} className="text-center">รูป</th>
                   <th>ชื่อ-นามสกุล</th>
                   <th>ตำแหน่ง</th>
+                  <th>สังกัดศูนย์</th>
                   <th className="text-center" style={{ width: '150px' }}>การจัดการ</th>
                 </tr>
               </thead>
@@ -64,6 +87,7 @@ export default async function AdminPersonnelPage({
                     </td>
                     <td>{person.name}</td>
                     <td>{person.position}</td>
+                    <td>{person.campus}</td>
                     <td>
                       <div className="d-flex justify-content-center gap-2">
                         <Link href={`/admin/personnel/${person.id}/edit`} className="btn btn-info btn-sm">
@@ -78,7 +102,10 @@ export default async function AdminPersonnelPage({
             </table>
           </div>
         </div>
-        <div className="card-footer bg-white py-3">
+        <div className="card-footer bg-white py-3 d-flex justify-content-between align-items-center">
+            <span className="text-muted small">
+              พบ {count} รายการ
+            </span>
             <Pagination totalPages={totalPages} />
         </div>
       </div>

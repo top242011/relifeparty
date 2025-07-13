@@ -7,6 +7,8 @@
 // Type for the state of a form used with the useFormState Hook
 export type FormState = {
   errors?: {
+    // All properties here should be optional arrays of strings
+    // to match the structure from Zod's .flatten().fieldErrors
     id?: string[];
     name?: string[];
     title?: string[];
@@ -15,10 +17,22 @@ export type FormState = {
     content?: string[];
     publishDate?: string[];
     position?: string[];
-    details?: string;
+    bio?: string[];
+    image_url?: string[];
+    is_active?: string[];
+    role?: string[];
+    campus?: string[];
+    topic?: string[];
+    scope?: string[];
+    details?: string[]; // Corrected: Changed from string to string[]
+    meeting_id?: string[];
+    proposer_id?: string[];
+    
+    // Index signature to allow for any other string key
+    [key: string]: string[] | undefined;
   };
   message?: string | null;
-  success?: boolean;
+  success?: boolean; // Added for toast notifications
 };
 
 // --- Data Model Types ---
@@ -99,4 +113,23 @@ export type AttendanceRecordWithPersonnel = {
     name: string;
     campus: string;
   };
+};
+
+// --- Types for Dashboard ---
+
+export type DashboardCardData = {
+  personnelCount: number;
+  policiesCount: number;
+  newsCount: number;
+  eventsCount: number;
+  meetingCount: number;
+  motionCount: number;
+  attendanceRate: number;
+};
+
+export type LatestEvent = {
+  id: string;
+  title: string;
+  location: string | null;
+  eventDate: string;
 };
