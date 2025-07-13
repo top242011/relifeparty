@@ -1,33 +1,20 @@
 // src/lib/definitions.ts
 
-/**
- * This file is the central repository for all TypeScript Type Definitions used in the project.
- */
-
 // Type for the state of a form used with the useFormState Hook
 export type FormState = {
   errors?: {
-    // General
     id?: string[];
     name?: string[];
     title?: string[];
     description?: string[];
-    
-    // Event specific
     eventDate?: string[];
-
-    // News specific
     content?: string[];
     publishDate?: string[];
-    
-    // Personnel specific
     position?: string[];
-
-    // Motion specific
     details?: string;
-
   };
   message?: string | null;
+  success?: boolean; // <-- เพิ่ม property นี้เพื่อบอกสถานะสำเร็จ
 };
 
 // --- Data Model Types ---
@@ -73,7 +60,6 @@ export type Personnel = {
     committees: string[] | null;
 };
 
-// Type for Meetings page
 export type Meeting = {
     id: string;
     topic: string;
@@ -89,7 +75,6 @@ export type MeetingFile = {
     file_url: string;
 };
 
-// Type for Motions page
 export type Motion = {
   id: string; 
   title: string;

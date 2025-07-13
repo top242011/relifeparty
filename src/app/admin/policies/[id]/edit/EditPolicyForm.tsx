@@ -3,28 +3,32 @@
 
 import { useEffect } from 'react';
 import { useFormState } from 'react-dom';
+import { useRouter } from 'next/navigation'; // 1. Import useRouter
 import { updatePolicy } from '@/lib/actions';
 import SubmitButton from '@/components/admin/SubmitButton';
 import Link from 'next/link';
 import type { Policy, FormState } from '@/lib/definitions';
-import toast from 'react-hot-toast'; // 1. Import toast
+import toast from 'react-hot-toast';
 
 export default function EditPolicyForm({ policy }: { policy: Policy }) {
+  const router = useRouter(); // 2. ประกาศใช้งาน router
   const initialState: FormState = { message: null, errors: {} };
   const [state, dispatch] = useFormState(updatePolicy, initialState);
 
-  // 2. ใช้ useEffect เพื่อ "ดักจับ" การเปลี่ยนแปลงของ state.message
+  // 3. ใช้ useEffect เพื่อ "ดักจับ" การเปลี่ยนแปลงของ state
   useEffect(() => {
-    if (state.message) {
-      if (state.errors) {
-        // ถ้ามี errors ให้แสดง Toast แบบ Error
-        toast.error(state.message);
-      } else {
-        // ถ้าไม่มี errors (สำเร็จ) ให้แสดง Toast แบบ Success
-        toast.success(state.message);
-      }
+    if (state.success) {
+      // ถ้าสำเร็จ
+      toast.success(state.message || 'บันทึกข้อมูลสำเร็จ!');
+      // หน่วงเวลา 1.5 วินาทีเพื่อให้ผู้ใช้เห็น Toast ก่อน redirect
+      setTimeout(() => {
+        router.push('/admin/policies');
+      }, 1500);
+    } else if (state.message) {
+      // ถ้ามี error message
+      toast.error(state.message);
     }
-  }, [state]);
+  }, [state, router]);
 
   return (
     <div className="container mt-4">
@@ -69,13 +73,6 @@ export default function EditPolicyForm({ policy }: { policy: Policy }) {
               ></textarea>
             </div>
             
-            {/* 3. เราไม่จำเป็นต้องแสดงข้อความในฟอร์มอีกต่อไป เพราะ Toast จะทำหน้าที่แทน */}
-            {/* {state.message && (
-                <div className="alert alert-danger mt-3" role="alert">
-                    {state.message}
-                </div>
-            )} */}
-
             <div className="d-flex justify-content-end gap-2 mt-4">
                 <Link href="/admin/policies" className="btn btn-secondary">
                     ยกเลิก
