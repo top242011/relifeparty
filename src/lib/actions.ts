@@ -4,22 +4,62 @@
 import { z } from 'zod';
 import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import type { FormState } from './definitions'; // <-- เพิ่มบรรทัดนี้ที่ขาดไป
+import { redirect } from 'next/navigation';
+import type { FormState } from './definitions';
 
-// --- Zod Schemas and Helper function (เหมือนเดิม) ---
+// --- Helper ---
 const getSupabase = () => createClient();
 
+// --- Zod Schemas ---
 const BaseSchema = z.object({
   id: z.string().optional(),
   description: z.string().optional(),
 });
-const PolicySchema = BaseSchema.extend({ title: z.string().min(1, 'กรุณากรอกชื่อนโยบาย') });
-const CommitteeSchema = BaseSchema.extend({ name: z.string().min(1, 'กรุณากรอกชื่อคณะกรรมาธิการ') });
-const EventSchema = BaseSchema.extend({ title: z.string().min(1, 'กรุณากรอกชื่อกิจกรรม'), description: z.string().min(1, 'กรุณากรอกรายละเอียด'), eventDate: z.string().min(1, 'กรุณาเลือกวันที่'), location: z.string().optional() });
-const NewsSchema = BaseSchema.extend({ title: z.string().min(1, 'กรุณากรอกหัวข้อข่าว'), content: z.string().min(1, 'กรุณากรอกเนื้อหาข่าว'), publishDate: z.string().min(1, 'กรุณาเลือกวันที่เผยแพร่'), imageUrl: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')) });
-const PersonnelSchema = BaseSchema.extend({ name: z.string().min(1, 'กรุณากรอกชื่อ-นามสกุล'), position: z.string().min(1, 'กรุณากรอกตำแหน่ง'), bio: z.string().optional(), image_url: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')), is_active: z.boolean(), role: z.string(), campus: z.string() });
-const MeetingSchema = BaseSchema.extend({ topic: z.string().min(1, 'กรุณากรอกหัวข้อการประชุม'), date: z.string().min(1, 'กรุณาเลือกวันที่ประชุม'), scope: z.string() });
-const MotionSchema = BaseSchema.extend({ title: z.string().min(1, 'กรุณากรอกชื่อญัตติ'), details: z.string().optional(), meeting_id: z.string().optional().nullable(), proposer_id: z.string().optional().nullable() });
+
+const PolicySchema = BaseSchema.extend({
+  title: z.string().min(1, 'กรุณากรอกชื่อนโยบาย'),
+});
+
+const CommitteeSchema = BaseSchema.extend({
+  name: z.string().min(1, 'กรุณากรอกชื่อคณะกรรมาธิการ'),
+});
+
+const EventSchema = BaseSchema.extend({
+  title: z.string().min(1, 'กรุณากรอกชื่อกิจกรรม'),
+  description: z.string().min(1, 'กรุณากรอกรายละเอียด'),
+  eventDate: z.string().min(1, 'กรุณาเลือกวันที่'),
+  location: z.string().optional(),
+});
+
+const NewsSchema = BaseSchema.extend({
+    title: z.string().min(1, 'กรุณากรอกหัวข้อข่าว'),
+    content: z.string().min(1, 'กรุณากรอกเนื้อหาข่าว'),
+    publishDate: z.string().min(1, 'กรุณาเลือกวันที่เผยแพร่'),
+    imageUrl: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')),
+});
+
+const PersonnelSchema = BaseSchema.extend({
+    name: z.string().min(1, 'กรุณากรอกชื่อ-นามสกุล'),
+    position: z.string().min(1, 'กรุณากรอกตำแหน่ง'),
+    bio: z.string().optional(),
+    image_url: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')),
+    is_active: z.boolean(),
+    role: z.string(),
+    campus: z.string(),
+});
+
+const MeetingSchema = BaseSchema.extend({
+    topic: z.string().min(1, 'กรุณากรอกหัวข้อการประชุม'),
+    date: z.string().min(1, 'กรุณาเลือกวันที่ประชุม'),
+    scope: z.string(),
+});
+
+const MotionSchema = BaseSchema.extend({
+    title: z.string().min(1, 'กรุณากรอกชื่อญัตติ'),
+    details: z.string().optional(),
+    meeting_id: z.string().optional().nullable(),
+    proposer_id: z.string().optional().nullable(),
+});
 
 
 // --- Generic Create/Update/Delete Functions ---
@@ -42,7 +82,7 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
     const validatedFields = schema.safeParse(dataToValidate);
 
     if (!validatedFields.success) {
-        return { success: false, errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบ' };
+        return { errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบ' };
     }
 
     const { id, ...data } = validatedFields.data;
@@ -52,23 +92,19 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
         if (action === 'create') {
             ({ error } = await supabase.from(tableName).insert(data));
         } else {
-            if (!id) return { success: false, message: 'ไม่พบ ID สำหรับการอัปเดต' };
+            if (!id) return { message: 'ไม่พบ ID สำหรับการอัปเดต' };
             ({ error } = await supabase.from(tableName).update(data).eq('id', id));
         }
         if (error) throw error;
     } catch (e: any) {
-        return { success: false, message: `Database Error: ${e.message}` };
+        return { message: `Database Error: ${e.message}` };
     }
 
-    // Revalidate path แต่ไม่ redirect
     revalidatePath(redirectPath);
     if (action === 'update' && id) {
         revalidatePath(`${redirectPath}/${id}/edit`);
     }
-
-    // ส่งสถานะสำเร็จกลับไปให้ Client
-    const successMessage = action === 'create' ? 'สร้างข้อมูลสำเร็จ!' : 'อัปเดตข้อมูลสำเร็จ!';
-    return { success: true, message: successMessage };
+    redirect(redirectPath);
 }
 
 async function deleteItem(formData: FormData, tableName: string, revalidatePathUrl: string) {
@@ -84,7 +120,7 @@ async function deleteItem(formData: FormData, tableName: string, revalidatePathU
 }
 
 
-// --- Exported Server Actions (เหมือนเดิม) ---
+// --- Exported Server Actions ---
 
 export const createPolicy = (prevState: FormState, formData: FormData) => handleFormAction(formData, PolicySchema.omit({ id: true }), 'policies', '/admin/policies', 'create');
 export const updatePolicy = (prevState: FormState, formData: FormData) => handleFormAction(formData, PolicySchema, 'policies', '/admin/policies', 'update');
@@ -110,3 +146,24 @@ export const deleteMeeting = (formData: FormData) => deleteItem(formData, 'meeti
 
 export const createMotion = (prevState: FormState, formData: FormData) => handleFormAction(formData, MotionSchema.omit({ id: true }), 'motions', '/admin/motions', 'create');
 export const deleteMotion = (formData: FormData) => deleteItem(formData, 'motions', '/admin/motions');
+
+// --- โค้ดที่เพิ่มเข้ามาสำหรับระบบลงมติ ---
+
+export async function updateMotionResult(motionId: string, result: 'ผ่าน' | 'ไม่ผ่าน' | 'รอลงมติ') {
+  'use server';
+  const supabase = createClient();
+  try {
+    const { error } = await supabase
+      .from('motions')
+      .update({ result: result })
+      .eq('id', motionId);
+
+    if (error) throw error;
+
+    revalidatePath('/admin/motions');
+    revalidatePath(`/admin/motions/${motionId}/edit`);
+    return { success: true, message: 'อัปเดตผลการลงมติสำเร็จ!' };
+  } catch (e: any) {
+    return { success: false, message: `Database Error: ${e.message}` };
+  }
+}
