@@ -1,89 +1,35 @@
 // src/app/admin/meetings/[id]/edit/EditMeetingForm.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import type { JSX } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../../../../../utils/supabase/client';
+import type { Meeting, MeetingFile } from '@/lib/definitions';
+import Link from 'next/link';
 
-// Define types for data structures
-type Meeting = {
-    id: string;
-    topic: string; // Changed from title to topic to match table
-    date: string;
-    description: string | null; // Can be null
+// กำหนด Props ที่จะรับจาก Server Component
+interface EditMeetingFormProps {
+    meeting: Meeting;
+    initialFiles: MeetingFile[];
 };
 
-type MeetingFile = {
-    id: string;
-    meeting_id: string;
-    file_name: string;
-    file_url: string;
-};
-
-// Define props for the form component, now it only needs the ID.
-type EditMeetingFormProps = {
-    meetingId: string;
-};
-
-export default function EditMeetingForm({ meetingId }: EditMeetingFormProps): JSX.Element {
+export default function EditMeetingForm({ meeting, initialFiles }: EditMeetingFormProps): JSX.Element {
     const supabase = createClient();
     const router = useRouter();
     
-    // State for the form fields
-    const [meeting, setMeeting] = useState<Meeting | null>(null);
-    const [files, setFiles] = useState<MeetingFile[]>([]);
+    // State สำหรับจัดการฟอร์ม ใช้ข้อมูลที่ได้รับจาก props เป็นค่าเริ่มต้น
+    const [topic, setTopic] = useState(meeting.topic);
+    const [date, setDate] = useState(new Date(meeting.date).toISOString().split('T')[0]);
+    const [description, setDescription] = useState(meeting.description || '');
+    const [files, setFiles] = useState<MeetingFile[]>(initialFiles);
     
-    // State for managing UI
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    // State for file handling
+    // State สำหรับจัดการไฟล์
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
     const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
 
-    // Use useCallback to memoize the data fetching function
-    const fetchMeetingData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            // Fetch meeting details
-            const { data: meetingData, error: meetingError } = await supabase
-                .from('meetings')
-                .select('*')
-                .eq('id', meetingId)
-                .single();
-
-            if (meetingError) throw meetingError;
-            setMeeting(meetingData);
-
-            // Fetch associated files
-            const { data: filesData, error: filesError } = await supabase
-                .from('meeting_files')
-                .select('*')
-                .eq('meeting_id', meetingId);
-
-            if (filesError) throw filesError;
-            setFiles(filesData || []);
-
-        } catch (err) { // FIX: Changed type from 'any' to 'unknown' for type safety
-            console.error("Failed to fetch meeting data:", err);
-            // FIX: Add type guard to safely access error properties
-            if (err instanceof Error) {
-                setError(`เกิดข้อผิดพลาดในการโหลดข้อมูล: ${err.message}`);
-            } else {
-                setError('เกิดข้อผิดพลาดที่ไม่รู้จักขณะโหลดข้อมูล');
-            }
-        } finally {
-            setLoading(false);
-        }
-    }, [meetingId, supabase]);
-
-    // Fetch data when the component mounts
-    useEffect(() => {
-        fetchMeetingData();
-    }, [fetchMeetingData]);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState('');
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
@@ -98,25 +44,24 @@ export default function EditMeetingForm({ meetingId }: EditMeetingFormProps): JS
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (!meeting) return;
+        setSaving(true);
+        setMessage('');
 
-        // 1. Update meeting details
         const { error: meetingError } = await supabase
             .from('meetings')
-            .update({ topic: meeting.topic, date: meeting.date, description: meeting.description })
+            .update({ topic, date, description })
             .eq('id', meeting.id);
 
         if (meetingError) {
-            alert('Failed to update meeting.');
+            setMessage('แก้ไขข้อมูลการประชุมไม่สำเร็จ: ' + meetingError.message);
+            setSaving(false);
             return;
         }
 
-        // 2. Remove files marked for deletion
         if (filesToRemove.length > 0) {
             await supabase.from('meeting_files').delete().in('id', filesToRemove);
         }
 
-        // 3. Upload new files
         if (filesToUpload.length > 0) {
             for (const file of filesToUpload) {
                 const filePath = `meetings/${meeting.id}/${file.name}`;
@@ -125,9 +70,8 @@ export default function EditMeetingForm({ meetingId }: EditMeetingFormProps): JS
                     .upload(filePath, file, { upsert: true });
 
                 if (uploadError) {
-                    console.error('Error uploading file:', uploadError);
-                    alert(`Failed to upload ${file.name}.`);
-                    continue; // Continue to next file
+                    setMessage(`อัปโหลดไฟล์ ${file.name} ไม่สำเร็จ`);
+                    continue;
                 }
 
                 const { data: urlData } = supabase.storage.from('meeting-files').getPublicUrl(filePath);
@@ -139,76 +83,51 @@ export default function EditMeetingForm({ meetingId }: EditMeetingFormProps): JS
             }
         }
         
-        alert('อัปเดตข้อมูลการประชุมสำเร็จ!');
+        setMessage('อัปเดตข้อมูลการประชุมสำเร็จ!');
         router.push('/admin/meetings');
         router.refresh();
+        setSaving(false);
     };
 
-    // --- Render Logic ---
-    if (loading) {
-        return <div className="d-flex justify-content-center align-items-center vh-100"><p>กำลังโหลดข้อมูลการประชุม...</p></div>;
-    }
-
-    if (error) {
-        return <div className="alert alert-danger">{error}</div>;
-    }
-    
-    if (!meeting) {
-        return <div className="alert alert-warning">ไม่พบข้อมูลการประชุม</div>;
-    }
-
     return (
-        <div className="container p-4 mx-auto">
-            <h1 className="mb-4 text-2xl font-bold">แก้ไขข้อมูลการประชุม</h1>
-            <form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow-md">
-                <div className="mb-4">
-                    <label className="block mb-2 text-sm font-bold text-gray-700">หัวข้อการประชุม</label>
-                    <input
-                        type="text"
-                        value={meeting.topic}
-                        onChange={(e) => setMeeting({ ...meeting, topic: e.target.value })}
-                        className="w-full px-3 py-2 border rounded"
-                        required
-                    />
+        <div className="container py-4">
+            <h1 className="mb-4">บันทึกผลการประชุม</h1>
+            <form onSubmit={handleSubmit} className="card shadow-sm p-4">
+                <div className="mb-3">
+                    <label className="form-label">หัวข้อการประชุม</label>
+                    <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} className="form-control" required />
+                </div>
+                <div className="mb-3">
+                    <label className="form-label">วันที่</label>
+                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="form-control" required />
+                </div>
+                <div className="mb-3">
+                    <label className="form-label">รายละเอียดเพิ่มเติม/สรุปการประชุม</label>
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="form-control" rows={5} />
                 </div>
                 <div className="mb-4">
-                    <label className="block mb-2 text-sm font-bold text-gray-700">วันที่</label>
-                    <input
-                        type="date"
-                        value={new Date(meeting.date).toISOString().split('T')[0]}
-                        onChange={(e) => setMeeting({ ...meeting, date: e.target.value })}
-                        className="w-full px-3 py-2 border rounded"
-                        required
-                    />
-                </div>
-                <div className="mb-4">
-                    <label className="block mb-2 text-sm font-bold text-gray-700">รายละเอียดเพิ่มเติม</label>
-                    <textarea
-                        value={meeting.description || ''}
-                        onChange={(e) => setMeeting({ ...meeting, description: e.target.value })}
-                        className="w-full px-3 py-2 border rounded"
-                    />
-                </div>
-                <div className="mb-4">
-                    <label className="block mb-2 text-sm font-bold text-gray-700">ไฟล์แนบ</label>
+                    <label className="form-label">ไฟล์แนบ</label>
                     <div className="mb-2">
-                        {files.map(file => (
-                            <div key={file.id} className="flex items-center justify-between py-1">
-                                <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-500">{file.file_name}</a>
-                                <button type="button" onClick={() => removeExistingFile(file.id)} className="px-2 py-1 text-sm text-white bg-red-500 rounded">ลบ</button>
-                            </div>
-                        ))}
+                        {files.length > 0 ? (
+                            files.map(file => (
+                                <div key={file.id} className="d-flex align-items-center justify-content-between p-2 border rounded mb-1">
+                                    <a href={file.file_url} target="_blank" rel="noopener noreferrer">{file.file_name}</a>
+                                    <button type="button" onClick={() => removeExistingFile(file.id)} className="btn btn-danger btn-sm">ลบ</button>
+                                </div>
+                            ))
+                        ) : <p className="text-muted">ไม่มีไฟล์แนบ</p>}
                     </div>
-                    <input
-                        type="file"
-                        multiple
-                        onChange={handleFileChange}
-                        className="w-full file-input file-input-bordered"
-                    />
+                    <input type="file" multiple onChange={handleFileChange} className="form-control" />
                 </div>
-                <button type="submit" className="px-4 py-2 font-bold text-white bg-blue-500 rounded hover:bg-blue-700">
-                    บันทึกการเปลี่ยนแปลง
-                </button>
+                
+                {message && <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`}>{message}</div>}
+
+                <div className="d-flex justify-content-end gap-2 mt-4">
+                    <Link href="/admin/meetings" className="btn btn-secondary">ยกเลิก</Link>
+                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                        {saving ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
+                    </button>
+                </div>
             </form>
         </div>
     );

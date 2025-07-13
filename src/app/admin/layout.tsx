@@ -1,9 +1,8 @@
 // src/app/admin/layout.tsx
 
-// ไฟล์นี้ "ห้าม" import global css เช่น 'bootstrap.min.css' หรือ './globals.css'
 import { createClient } from "../../../utils/supabase/server";
 import { redirect } from "next/navigation";
-import Sidebar from "@/components/admin/Sidebar";
+// import Sidebar from "@/components/admin/Sidebar"; // 1. ลบการ import Sidebar ที่ไม่ได้ใช้ออก
 import AdminNavbar from "@/components/admin/AdminNavbar";
 
 export default async function AdminLayout({
@@ -21,15 +20,15 @@ export default async function AdminLayout({
     return redirect("/admin/login");
   }
 
+  // 2. แก้ไขโครงสร้าง Layout ทั้งหมด
+  // ลบ <div className="d-flex"> และ <Sidebar /> ออก
+  // ให้เหลือโครงสร้างแบบคอลัมน์เดียว ที่มี AdminNavbar อยู่ด้านบนสุด
   return (
-    <div className="d-flex" style={{ minHeight: '100vh' }}>
-      <Sidebar />
-      <div className="flex-grow-1 d-flex flex-column">
-        <AdminNavbar />
-        <main className="flex-grow-1 bg-light p-4">
-          {children}
-        </main>
-      </div>
+    <div>
+      <AdminNavbar />
+      <main className="container-fluid p-4">
+        {children}
+      </main>
     </div>
   );
 }
