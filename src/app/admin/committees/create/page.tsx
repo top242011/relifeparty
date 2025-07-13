@@ -1,60 +1,67 @@
 // src/app/admin/committees/create/page.tsx
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '../../../../../utils/supabase/client'
-import Link from 'next/link'
+import { useEffect } from 'react';
+import { useFormState } from 'react-dom';
+import { useRouter } from 'next/navigation';
+import { createCommittee } from '@/lib/actions';
+import type { FormState } from '@/lib/definitions';
+import SubmitButton from '@/components/admin/SubmitButton';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 export default function CreateCommitteePage() {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
-  const router = useRouter()
+  const router = useRouter();
+  const initialState: FormState = { message: null, errors: {}, success: false };
+  const [state, dispatch] = useFormState(createCommittee, initialState);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    setLoading(true)
-    setMessage('')
-
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('committees')
-      .insert([{ name, description }])
-
-    if (error) {
-      setMessage(`เกิดข้อผิดพลาด: ${error.message}`)
-    } else {
-      setMessage('เพิ่มคณะกรรมาธิการสำเร็จ!')
-      router.push('/admin/committees')
-      router.refresh()
+  useEffect(() => {
+    if (state.success) {
+      // Server Action จะจัดการ redirect เองเมื่อสร้างสำเร็จ
+      // เราแค่แสดง toast ที่นี่
+      toast.success(state.message || 'สร้างข้อมูลสำเร็จ!');
+    } else if (state.message) {
+      // แสดง error toast ถ้ามีข้อความผิดพลาดจาก server
+      toast.error(state.message);
     }
-    setLoading(false)
-  }
+  }, [state, router]);
 
   return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      <main className="container flex-grow-1 py-4">
-        <h1 className="mb-4">เพิ่มคณะกรรมาธิการใหม่</h1>
-        <div className="card shadow-sm p-4">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="name" className="form-label">ชื่อคณะกรรมาธิการ</label>
-              <input type="text" className="form-control" id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+    <>
+      <h1 className="mb-4">เพิ่มคณะกรรมาธิการใหม่</h1>
+      <div className="card shadow-sm p-4">
+        <form action={dispatch}>
+          <div className="mb-3">
+            <label htmlFor="name" className="form-label">ชื่อคณะกรรมาธิการ</label>
+            <input 
+                type="text" 
+                className={`form-control ${state.errors?.name ? 'is-invalid' : ''}`}
+                id="name" 
+                name="name" 
+                required 
+            />
+            <div id="name-error" aria-live="polite" aria-atomic="true">
+                {state.errors?.name && state.errors.name.map((error: string) => (
+                    <p className="mt-2 text-sm text-danger" key={error}>{error}</p>
+                ))}
             </div>
-            <div className="mb-3">
-              <label htmlFor="description" className="form-label">คำอธิบายหน้าที่</label>
-              <textarea className="form-control" id="description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)}></textarea>
-            </div>
-            <button type="submit" className="btn btn-primary me-2" disabled={loading}>
-              {loading ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
-            </button>
+          </div>
+          <div className="mb-3">
+            <label htmlFor="description" className="form-label">คำอธิบายหน้าที่</label>
+            <textarea 
+                className="form-control" 
+                id="description" 
+                name="description"
+                rows={3}
+            ></textarea>
+          </div>
+          
+          <div className="d-flex justify-content-end gap-2 mt-4">
             <Link href="/admin/committees" className="btn btn-secondary">ยกเลิก</Link>
-          </form>
-          {message && <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`}>{message}</div>}
-        </div>
-      </main>
-    </div>
-  )
+            <SubmitButton label="บันทึกข้อมูล" />
+          </div>
+        </form>
+      </div>
+    </>
+  );
 }

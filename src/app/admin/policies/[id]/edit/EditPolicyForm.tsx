@@ -3,29 +3,32 @@
 
 import { useEffect } from 'react';
 import { useFormState } from 'react-dom';
-import { useRouter } from 'next/navigation'; // 1. Import useRouter
-import { updatePolicy } from '@/lib/actions';
+import { useRouter } from 'next/navigation';
+import { updatePolicy } from '@/lib/actions'; // Import the corrected action
 import SubmitButton from '@/components/admin/SubmitButton';
 import Link from 'next/link';
 import type { Policy, FormState } from '@/lib/definitions';
 import toast from 'react-hot-toast';
 
 export default function EditPolicyForm({ policy }: { policy: Policy }) {
-  const router = useRouter(); // 2. ประกาศใช้งาน router
-  const initialState: FormState = { message: null, errors: {} };
-  const [state, dispatch] = useFormState(updatePolicy, initialState);
+  const router = useRouter();
+  const initialState: FormState = { message: null, errors: {}, success: false };
 
-  // 3. ใช้ useEffect เพื่อ "ดักจับ" การเปลี่ยนแปลงของ state
+  // This correctly creates a new function with the policy's ID pre-filled as the first argument.
+  // The new function's signature is now (prevState, formData) => ..., which is what useFormState expects.
+  const updatePolicyWithId = updatePolicy.bind(null, policy.id);
+
+  const [state, dispatch] = useFormState(updatePolicyWithId, initialState);
+
+  // useEffect for showing toast notifications based on the form state
   useEffect(() => {
     if (state.success) {
-      // ถ้าสำเร็จ
       toast.success(state.message || 'บันทึกข้อมูลสำเร็จ!');
-      // หน่วงเวลา 1.5 วินาทีเพื่อให้ผู้ใช้เห็น Toast ก่อน redirect
+      // Optional: redirect after a delay to let the user see the toast
       setTimeout(() => {
         router.push('/admin/policies');
       }, 1500);
     } else if (state.message) {
-      // ถ้ามี error message
       toast.error(state.message);
     }
   }, [state, router]);
@@ -35,8 +38,9 @@ export default function EditPolicyForm({ policy }: { policy: Policy }) {
       <h1>แก้ไขนโยบาย</h1>
       <div className="card">
         <div className="card-body">
+          {/* The form now calls the `dispatch` function from useFormState */}
           <form action={dispatch}>
-            <input type="hidden" name="id" value={policy.id} />
+            {/* No hidden input for ID is needed anymore */}
 
             <div className="mb-3">
               <label htmlFor="title" className="form-label">
@@ -77,7 +81,7 @@ export default function EditPolicyForm({ policy }: { policy: Policy }) {
                 <Link href="/admin/policies" className="btn btn-secondary">
                     ยกเลิก
                 </Link>
-                <SubmitButton />
+                <SubmitButton label="บันทึกการแก้ไข" />
             </div>
           </form>
         </div>
