@@ -7,8 +7,17 @@ import Search from '@/components/admin/Search';
 import Pagination from '@/components/admin/Pagination';
 import DeleteButton from '@/components/admin/DeleteButton';
 import { deletePersonnel } from '@/lib/actions';
-import { Filter, ArrowUpDown } from 'lucide-react';
-import PersonnelSort from '../../../components/admin/PersonnelSort'; // New component for sorting
+import PersonnelSort from '../../../components/admin/PersonnelSort';
+
+// --- NEW: Helper function to map campus names to Thai ---
+const getThaiCampusName = (campus: string): string => {
+  const campusMap: { [key: string]: string } = {
+    'Rangsit': 'รังสิต',
+    'Tha Prachan': 'ท่าพระจันทร์',
+    'Lampang': 'ลำปาง',
+  };
+  return campusMap[campus] || campus; // Fallback to original name if not in map
+};
 
 export default async function AdminPersonnelPage({
   searchParams,
@@ -87,7 +96,8 @@ export default async function AdminPersonnelPage({
                     </td>
                     <td>{person.name}</td>
                     <td>{person.position}</td>
-                    <td>{person.campus}</td>
+                    {/* --- FIXED: Use the helper function to display Thai name --- */}
+                    <td>{getThaiCampusName(person.campus)}</td>
                     <td>
                       <div className="d-flex justify-content-center gap-2">
                         <Link href={`/admin/personnel/${person.id}/edit`} className="btn btn-info btn-sm">
