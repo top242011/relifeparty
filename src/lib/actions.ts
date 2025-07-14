@@ -2,10 +2,11 @@
 'use server';
 
 import { z } from 'zod';
-import { createClient } from 'utils/supabase/server';
+import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import type { FormState } from '../lib/definitions';
+// --- FIXED: Imported the 'Personnel' type ---
+import type { FormState, Personnel } from '../lib/definitions';
 
 // --- Zod Schemas ---
 const BaseSchemaWithId = z.object({
@@ -16,12 +17,140 @@ const PolicySchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กร�
 const CommitteeSchema = BaseSchemaWithId.extend({ name: z.string().min(1, 'กรุณากรอกชื่อคณะกรรมาธิการ') });
 const EventSchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กรุณากรอกชื่อกิจกรรม'), description: z.string().min(1, 'กรุณากรอกรายละเอียด'), eventDate: z.string().min(1, 'กรุณาเลือกวันที่'), location: z.string().optional() });
 const NewsSchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กรุณากรอกหัวข้อข่าว'), content: z.string().min(1, 'กรุณากรอกเนื้อหาข่าว'), publishDate: z.string().min(1, 'กรุณาเลือกวันที่เผยแพร่'), imageUrl: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')) });
-const PersonnelSchema = z.object({ id: z.string().optional(), name: z.string().min(1, 'กรุณากรอกชื่อ-นามสกุล'), position: z.string().min(1, 'กรุณากรอกตำแหน่ง'), bio: z.string().optional(), image_url: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')), is_active: z.boolean(), role: z.string(), campus: z.string() });
 const MeetingSchema = z.object({ id: z.string().optional(), topic: z.string().min(1, 'กรุณากรอกหัวข้อการประชุม'), date: z.string().min(1, 'กรุณาเลือกวันที่ประชุม'), scope: z.string() });
 const MotionSchema = z.object({ id: z.string().optional(), title: z.string().min(1, 'กรุณากรอกชื่อญัตติ'), details: z.string().optional(), meeting_id: z.string().optional().nullable(), proposer_id: z.string().optional().nullable() });
 
+// --- Updated Personnel Schema for File Uploads ---
+const PersonnelFormSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, { message: 'กรุณากรอกชื่อ-นามสกุล' }),
+  position: z.string().min(1, { message: 'กรุณากรอกตำแหน่ง' }),
+  bio: z.string().optional().nullable(),
+  is_active: z.boolean(),
+  role: z.string(),
+  campus: z.string(),
+  committees: z.array(z.string()).optional(),
+});
 
-// --- Generic Action Handler ---
+
+// --- Helper function for file upload ---
+async function uploadImage(supabase: any, file: File): Promise<string | null> {
+    if (!file || file.size === 0) {
+        return null;
+    }
+    const filePath = `personnel/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage
+        .from('personnel-images')
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error('Upload Error:', uploadError);
+        throw new Error('อัปโหลดรูปภาพไม่สำเร็จ');
+    }
+
+    const { data } = supabase.storage.from('personnel-images').getPublicUrl(filePath);
+    return data.publicUrl;
+}
+
+
+// --- createPersonnel Action with File Upload ---
+export async function createPersonnel(prevState: FormState, formData: FormData): Promise<FormState> {
+    const supabase = createClient();
+    
+    const committeeValues = formData.getAll('committees').map(String);
+
+    const validatedFields = PersonnelFormSchema.safeParse({
+        name: formData.get('name'),
+        position: formData.get('position'),
+        bio: formData.get('bio'),
+        is_active: formData.get('is_active') === 'on',
+        role: formData.get('role'),
+        campus: formData.get('campus'),
+        committees: committeeValues,
+    });
+
+    if (!validatedFields.success) {
+        return {
+            success: false,
+            errors: validatedFields.error.flatten().fieldErrors,
+            message: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบและกรอกข้อมูลให้ครบถ้วน',
+        };
+    }
+
+    const imageFile = formData.get('image_file') as File;
+    let imageUrl: string | null = null;
+
+    try {
+        if (imageFile && imageFile.size > 0) {
+            imageUrl = await uploadImage(supabase, imageFile);
+        }
+
+        const { error } = await supabase.from('personnel').insert({
+            ...validatedFields.data,
+            image_url: imageUrl,
+        });
+
+        if (error) throw error;
+
+    } catch (e: any) {
+        return { success: false, message: `Database Error: ${e.message}` };
+    }
+
+    revalidatePath('/admin/personnel', 'layout');
+    redirect('/admin/personnel');
+}
+
+// --- updatePersonnel Action with File Upload ---
+export async function updatePersonnel(id: string, prevState: FormState, formData: FormData): Promise<FormState> {
+    const supabase = createClient();
+
+    const committeeValues = formData.getAll('committees').map(String);
+
+    const validatedFields = PersonnelFormSchema.safeParse({
+        id: id,
+        name: formData.get('name'),
+        position: formData.get('position'),
+        bio: formData.get('bio'),
+        is_active: formData.get('is_active') === 'on',
+        role: formData.get('role'),
+        campus: formData.get('campus'),
+        committees: committeeValues,
+    });
+
+    if (!validatedFields.success) {
+        return {
+            success: false,
+            errors: validatedFields.error.flatten().fieldErrors,
+            message: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบและกรอกข้อมูลให้ครบถ้วน',
+        };
+    }
+
+    const imageFile = formData.get('image_file') as File;
+    // The type 'Personnel' is now correctly imported, so this line will work.
+    const dataToUpdate: Partial<Personnel> & { image_url?: string | null } = { ...validatedFields.data };
+
+
+    try {
+        if (imageFile && imageFile.size > 0) {
+            const newImageUrl = await uploadImage(supabase, imageFile);
+            dataToUpdate.image_url = newImageUrl;
+        }
+
+        const { error } = await supabase.from('personnel').update(dataToUpdate).eq('id', id);
+
+        if (error) throw error;
+
+    } catch (e: any) {
+        return { success: false, message: `Database Error: ${e.message}` };
+    }
+
+    revalidatePath('/admin/personnel', 'layout');
+    revalidatePath(`/admin/personnel/${id}/edit`, 'page');
+    redirect('/admin/personnel');
+}
+
+
+// --- Other Actions (Unchanged) ---
 async function handleFormAction<T extends z.ZodType<any, any>>(
     formData: FormData,
     schema: T,
@@ -32,12 +161,7 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
     const supabase = createClient();
     const rawFormData = Object.fromEntries(formData.entries());
     
-    const dataToValidate: { [key: string]: any } = { ...rawFormData };
-    if (tableName === 'personnel') {
-        dataToValidate.is_active = rawFormData.is_active === 'on';
-    }
-
-    const validatedFields = schema.safeParse(dataToValidate);
+    const validatedFields = schema.safeParse(rawFormData);
 
     if (!validatedFields.success) {
         return { success: false, errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบและกรอกข้อมูลให้ครบถ้วน' };
@@ -65,26 +189,21 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
         if (newMeetingId) {
             redirect(`${redirectPath}/${newMeetingId}/edit`);
         }
-    }
-    else if (action === 'create') {
-        redirect(redirectPath);
+    } else {
+      redirect(redirectPath);
     }
     
     return { success: true, message: action === 'create' ? 'สร้างข้อมูลสำเร็จ!' : 'อัปเดตข้อมูลสำเร็จ!' };
 }
-
-// --- Specific Actions ---
-
 // Create Actions
 export const createPolicy = (prevState: FormState, formData: FormData) => handleFormAction(formData, PolicySchema.omit({ id: true }), 'policies', '/admin/policies', 'create');
 export const createCommittee = (prevState: FormState, formData: FormData) => handleFormAction(formData, CommitteeSchema.omit({ id: true }), 'committees', '/admin/committees', 'create');
 export const createEvent = (prevState: FormState, formData: FormData) => handleFormAction(formData, EventSchema.omit({ id: true }), 'events', '/admin/events', 'create');
 export const createNews = (prevState: FormState, formData: FormData) => handleFormAction(formData, NewsSchema.omit({ id: true }), 'news', '/admin/news', 'create');
-export const createPersonnel = (prevState: FormState, formData: FormData) => handleFormAction(formData, PersonnelSchema.omit({ id: true }), 'personnel', '/admin/personnel', 'create');
 export const createMeeting = (prevState: FormState, formData: FormData) => handleFormAction(formData, MeetingSchema.omit({ id: true }), 'meetings', '/admin/meetings', 'create');
 export const createMotion = (prevState: FormState, formData: FormData) => handleFormAction(formData, MotionSchema.omit({ id: true }), 'motions', '/admin/motions', 'create');
 
-// Update Actions (all corrected to be compatible with the new pattern)
+// Update Actions
 export const updatePolicy = async (id: string, prevState: FormState, formData: FormData) => {
     formData.set('id', id);
     return handleFormAction(formData, PolicySchema, 'policies', '/admin/policies', 'update');
