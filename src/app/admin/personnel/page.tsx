@@ -1,10 +1,28 @@
 // src/app/admin/personnel/page.tsx
 import Link from 'next/link';
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic'; // 1. Import 'dynamic' from next/dynamic
 import { fetchFilteredPersonnel, fetchPersonnelPages, fetchAllCommittees, fetchPersonnelStats } from '@/lib/data';
-import PersonnelDashboard from '@/components/admin/PersonnelDashboard';
-import PersonnelTableWrapper from '@/components/admin//PersonnelTableWrapper';
-import ToastNotifier from '@/components/admin//ToastNotifier';
+// We will no longer import PersonnelDashboard directly
+// import PersonnelDashboard from '@/components/admin/personnel/PersonnelDashboard'; 
+import PersonnelTableWrapper from '@/components/admin/PersonnelTableWrapper';
+import ToastNotifier from '@/components/admin/ToastNotifier';
+
+// 2. Dynamically import the dashboard component with SSR turned off
+const PersonnelDashboard = dynamic(
+    () => import('@/components/admin/PersonnelDashboard'),
+    { 
+        ssr: false, // This is the crucial part
+        loading: () => ( // Optional: A nice loading state for the dashboard
+            <div className="text-center p-5 mb-4">
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading Dashboard...</span>
+                </div>
+                <p className="mt-2 text-muted">กำลังโหลดข้อมูลสรุป...</p>
+            </div>
+        )
+    }
+);
 
 export default async function AdminPersonnelPage({
   searchParams,
@@ -14,11 +32,11 @@ export default async function AdminPersonnelPage({
     page?: string;
     campus?: string;
     committeeId?: string;
-    role?: string; // New filter
+    role?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
-    message?: string; // For success toast
-    error?: string; // For error toast
+    message?: string;
+    error?: string;
   };
 }) {
   const query = searchParams?.query || '';
@@ -44,7 +62,6 @@ export default async function AdminPersonnelPage({
 
   return (
     <>
-      {/* Client component to show toast notifications based on URL params */}
       <ToastNotifier successMessage={searchParams?.message} errorMessage={searchParams?.error} />
 
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -54,12 +71,11 @@ export default async function AdminPersonnelPage({
         </Link>
       </div>
       
-      {/* Dashboard Section */}
+      {/* 3. The PersonnelDashboard component is now dynamically loaded */}
       <Suspense fallback={<div>Loading stats...</div>}>
         <PersonnelDashboard stats={stats} />
       </Suspense>
 
-      {/* Table Section with Loading Wrapper */}
       <PersonnelTableWrapper
         personnel={personnel}
         committees={committees}
