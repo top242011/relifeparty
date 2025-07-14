@@ -1,47 +1,63 @@
-// src/app/admin/news/[id]/edit/EditNewsForm.tsx
+// src/app/admin/events/[id]/edit/EditEventForm.tsx
 'use client';
 
+import { useEffect } from 'react';
 import { useFormState } from 'react-dom';
-import { updateNews } from '@/lib/actions';
-import type { FormState, News } from '@/lib/definitions';
+import { useRouter } from 'next/navigation';
+import { updateEvent } from '@/lib/actions';
+import type { FormState, Event } from '@/lib/definitions';
 import SubmitButton from '@/components/admin/SubmitButton';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
-export default function EditNewsForm({ news }: { news: News }) {
-  const initialState: FormState = { message: null, errors: {} };
-  const [state, dispatch] = useFormState(updateNews, initialState);
+// **FIX:** Added the missing "export default" keywords.
+export default function EditEventForm({ event }: { event: Event }) {
+  const router = useRouter();
+  const initialState: FormState = { message: null, errors: {}, success: false };
+
+  const [state, dispatch] = useFormState(
+    async (prevState: FormState, formData: FormData) => {
+      return updateEvent(event.id, prevState, formData);
+    },
+    initialState
+  );
+
+  useEffect(() => {
+    if (state.success) {
+      toast.success(state.message || 'บันทึกข้อมูลสำเร็จ!');
+      setTimeout(() => router.push('/admin/events'), 1500);
+    } else if (state.message) {
+      toast.error(state.message);
+    }
+  }, [state, router]);
 
   return (
     <>
-      <h1 className="mb-4 text-dark-blue">แก้ไขข่าวสาร</h1>
+      <h1 className="mb-4 text-dark-blue">แก้ไขกิจกรรม</h1>
       <div className="card shadow-sm p-4">
         <form action={dispatch}>
-          <input type="hidden" name="id" value={news.id} />
-
           <div className="mb-3">
-            <label htmlFor="title" className="form-label">หัวข้อข่าว</label>
-            <input type="text" className="form-control" id="title" name="title" defaultValue={news.title} required />
+            <label htmlFor="title" className="form-label">ชื่อกิจกรรม</label>
+            <input type="text" className={`form-control ${state.errors?.title ? 'is-invalid' : ''}`} id="title" name="title" defaultValue={event.title} required />
+            {state.errors?.title && <div className="invalid-feedback">{state.errors.title[0]}</div>}
           </div>
           <div className="mb-3">
-            <label htmlFor="content" className="form-label">เนื้อหาข่าว</label>
-            <textarea className="form-control" id="content" name="content" rows={5} defaultValue={news.content} required></textarea>
+            <label htmlFor="description" className="form-label">รายละเอียด</label>
+            <textarea className={`form-control ${state.errors?.description ? 'is-invalid' : ''}`} id="description" name="description" rows={4} defaultValue={event.description} required></textarea>
+            {state.errors?.description && <div className="invalid-feedback">{state.errors.description[0]}</div>}
           </div>
           <div className="mb-3">
-            <label htmlFor="publishDate" className="form-label">วันที่เผยแพร่</label>
-            <input type="date" className="form-control" id="publishDate" name="publishDate" defaultValue={new Date(news.publishDate).toISOString().split('T')[0]} required />
+            <label htmlFor="eventDate" className="form-label">วันที่จัดกิจกรรม</label>
+            <input type="date" className={`form-control ${state.errors?.eventDate ? 'is-invalid' : ''}`} id="eventDate" name="eventDate" defaultValue={new Date(event.eventDate).toISOString().split('T')[0]} required />
+            {state.errors?.eventDate && <div className="invalid-feedback">{state.errors.eventDate[0]}</div>}
           </div>
           <div className="mb-3">
-            <label htmlFor="imageUrl" className="form-label">URL รูปภาพ (ถ้ามี)</label>
-            <input type="url" className="form-control" id="imageUrl" name="imageUrl" defaultValue={news.imageUrl || ''} />
+            <label htmlFor="location" className="form-label">สถานที่ (ถ้ามี)</label>
+            <input type="text" className="form-control" id="location" name="location" defaultValue={event.location || ''} />
           </div>
-
-          {state.message && (
-            <div className="alert alert-danger mt-3" role="alert">{state.message}</div>
-          )}
-
           <div className="d-flex justify-content-end gap-2 mt-4">
-            <Link href="/admin/news" className="btn btn-secondary">ยกเลิก</Link>
-            <SubmitButton label="บันทึกการแก้ไข" pendingLabel="กำลังบันทึก..." />
+            <Link href="/admin/events" className="btn btn-secondary">ยกเลิก</Link>
+            <SubmitButton label="บันทึกการแก้ไข" />
           </div>
         </form>
       </div>
