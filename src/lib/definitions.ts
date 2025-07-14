@@ -16,15 +16,18 @@ export type FormState = {
     eventDate?: string[];
     content?: string[];
     publishDate?: string[];
-    position?: string[];
+    party_position?: string[];
+    student_council_position?: string[];
     bio?: string[];
     image_url?: string[];
     is_active?: string[];
-    role?: string[];
+    is_party_member?: string[];
+    is_mp?: string[];
+    is_executive?: string[];
     campus?: string[];
     topic?: string[];
     scope?: string[];
-    details?: string[]; // Corrected: Changed from string to string[]
+    details?: string[];
     meeting_id?: string[];
     proposer_id?: string[];
     
@@ -66,14 +69,18 @@ export type News = {
     imageUrl: string | null;
 };
 
+// UPDATED: Personnel type to reflect new schema
 export type Personnel = {
     id: string;
     name: string;
-    position: string;
+    party_position: string | null; // New field
+    student_council_position: string | null; // Renamed field
     bio: string | null;
     image_url: string | null;
     is_active: boolean;
-    role: string;
+    is_party_member: boolean; // New role field
+    is_mp: boolean; // New role field
+    is_executive: boolean; // New role field
     campus: string;
     committees: string[] | null;
 };
@@ -103,9 +110,6 @@ export type Motion = {
   created_at: string;
 };
 
-// --- Added for Attendance Tracking Feature ---
-
-// Type for attendance records that includes personnel information
 export type AttendanceRecordWithPersonnel = {
   personnel_id: string;
   status: 'เข้าประชุม' | 'ลา' | 'ขาด';
@@ -126,6 +130,16 @@ export type DashboardCardData = {
   motionCount: number;
   attendanceRate: number;
 };
+
+// NEW: Type for the new personnel stats dashboard
+export type PersonnelStats = {
+  total: number;
+  members: number;
+  mps: number;
+  executives: number;
+  byCampus: { name: string; value: number }[];
+};
+
 
 export type LatestEvent = {
   id: string;

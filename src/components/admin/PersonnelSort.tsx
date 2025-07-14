@@ -32,10 +32,23 @@ export default function PersonnelSort({ committees }: { committees: Committee[] 
   const currentSort = `${searchParams.get('sortBy') || 'name'}-${searchParams.get('sortOrder') || 'asc'}`;
 
   return (
-    <div className="d-flex justify-content-end gap-2">
+    <div className="d-flex flex-wrap justify-content-end gap-2">
+      {/* NEW: Role Filter Dropdown */}
       <select 
         className="form-select form-select-sm" 
-        style={{width: '180px'}}
+        style={{width: 'auto', minWidth: '150px'}}
+        onChange={(e) => handleFilterChange('role', e.target.value)}
+        defaultValue={searchParams.get('role') || ''}
+      >
+        <option value="">ทุกบทบาท</option>
+        <option value="is_party_member">สมาชิกพรรค</option>
+        <option value="is_mp">ส.ส.</option>
+        <option value="is_executive">กรรมการบริหาร</option>
+      </select>
+
+      <select 
+        className="form-select form-select-sm" 
+        style={{width: 'auto', minWidth: '150px'}}
         onChange={(e) => handleFilterChange('campus', e.target.value)}
         defaultValue={searchParams.get('campus') || ''}
       >
@@ -47,7 +60,7 @@ export default function PersonnelSort({ committees }: { committees: Committee[] 
       
       <select 
         className="form-select form-select-sm" 
-        style={{width: '220px'}}
+        style={{width: 'auto', minWidth: '200px'}}
         onChange={(e) => handleFilterChange('committeeId', e.target.value)}
         defaultValue={searchParams.get('committeeId') || ''}
       >
@@ -59,14 +72,14 @@ export default function PersonnelSort({ committees }: { committees: Committee[] 
 
       <select 
         className="form-select form-select-sm" 
-        style={{width: '180px'}}
+        style={{width: 'auto', minWidth: '180px'}}
         onChange={(e) => handleSortChange(e.target.value)}
         value={currentSort}
       >
         <option value="name-asc">เรียงตามชื่อ (ก-ฮ)</option>
         <option value="name-desc">เรียงตามชื่อ (ฮ-ก)</option>
-        <option value="position-asc">เรียงตามตำแหน่ง (ก-ฮ)</option>
-        <option value="position-desc">เรียงตามตำแหน่ง (ฮ-ก)</option>
+        <option value="party_position-asc">เรียงตามตำแหน่งในพรรค (ก-ฮ)</option>
+        <option value="party_position-desc">เรียงตามตำแหน่งในพรรค (ฮ-ก)</option>
       </select>
     </div>
   );

@@ -1,51 +1,82 @@
 // src/app/admin/personnel/create/page.tsx
-'use client'
+'use client';
 
 import { useFormState } from 'react-dom';
 import { createPersonnel } from '@/lib/actions';
 import type { FormState } from '@/lib/definitions';
 import SubmitButton from '@/components/admin/SubmitButton';
 import Link from 'next/link';
-import toast from 'react-hot-toast';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Select from 'react-select';
+import { createClient } from '../../../../../utils/supabase/client';
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
 
 export default function CreatePersonnelPage() {
   const initialState: FormState = { message: null, errors: {} };
   const [state, dispatch] = useFormState(createPersonnel, initialState);
+  const [committeeOptions, setCommitteeOptions] = useState<SelectOption[]>([]);
+  
+  // State to manage role checkboxes
+  const [isMp, setIsMp] = useState(false);
+  const [isExecutive, setIsExecutive] = useState(false);
 
-  // Use useEffect to show toast messages based on form state
   useEffect(() => {
-    if (state.success === false && state.message) {
-      toast.error(state.message);
-    }
-  }, [state]);
+    const fetchCommittees = async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from('committees').select('id, name').order('name');
+      if (data) {
+        setCommitteeOptions(data.map(c => ({ value: c.id, label: c.name })));
+      }
+    };
+    fetchCommittees();
+  }, []);
 
   return (
     <>
       <h1 className="mb-4">เพิ่มบุคลากรใหม่</h1>
       <div className="card shadow-sm p-4">
-        {/* The form now calls the new createPersonnel action */}
         <form action={dispatch}>
           <div className="mb-3">
             <label htmlFor="name" className="form-label">ชื่อ-นามสกุล</label>
             <input type="text" id="name" name="name" className={`form-control ${state.errors?.name ? 'is-invalid' : ''}`} required />
             {state.errors?.name && <div className="invalid-feedback">{state.errors.name[0]}</div>}
           </div>
+
+          {/* Role Checkboxes */}
           <div className="mb-3">
-            <label htmlFor="position" className="form-label">ตำแหน่งในพรรค</label>
-            <input type="text" id="position" name="position" className={`form-control ${state.errors?.position ? 'is-invalid' : ''}`} defaultValue="-" required />
-            {state.errors?.position && <div className="invalid-feedback">{state.errors.position[0]}</div>}
+            <label className="form-label">บทบาท (เลือกได้มากกว่า 1 ข้อ)</label>
+            <div className="form-check">
+              <input className="form-check-input" type="checkbox" name="is_party_member" id="is_party_member" defaultChecked />
+              <label className="form-check-label" htmlFor="is_party_member">สมาชิกพรรค</label>
+            </div>
+            <div className="form-check">
+              <input className="form-check-input" type="checkbox" name="is_mp" id="is_mp" onChange={(e) => setIsMp(e.target.checked)} />
+              <label className="form-check-label" htmlFor="is_mp">ส.ส.</label>
+            </div>
+            <div className="form-check">
+              <input className="form-check-input" type="checkbox" name="is_executive" id="is_executive" onChange={(e) => setIsExecutive(e.target.checked)} />
+              <label className="form-check-label" htmlFor="is_executive">กรรมการบริหารพรรค</label>
+            </div>
+          </div>
+          
+          <div className="mb-3">
+            <label htmlFor="party_position" className="form-label">ตำแหน่งในพรรค</label>
+            <input type="text" id="party_position" name="party_position" className="form-control" />
+          </div>
+
+          <div className="mb-3">
+            <label htmlFor="student_council_position" className="form-label">ตำแหน่งในสภานักศึกษา</label>
+            <input type="text" id="student_council_position" name="student_council_position" className="form-control" placeholder={!isMp && !isExecutive ? '-' : 'กรอกตำแหน่งในสภาฯ'} disabled={!isMp && !isExecutive} />
+             <div className="form-text">
+              กรอกตำแหน่งเฉพาะ ส.ส. หรือ กรรมการบริหารพรรค เท่านั้น
+            </div>
           </div>
 
           <div className="row">
-            <div className="col-md-6 mb-3">
-              <label htmlFor="role" className="form-label">บทบาท</label>
-              <select id="role" name="role" className="form-select" defaultValue="MP">
-                <option value="MP">ส.ส.</option>
-                <option value="Executive">กรรมการบริหาร</option>
-                <option value="Both">เป็นทั้งสองอย่าง</option>
-              </select>
-            </div>
             <div className="col-md-6 mb-3">
               <label htmlFor="campus" className="form-label">สังกัดศูนย์</label>
               <select id="campus" name="campus" className="form-select" defaultValue="Rangsit">
@@ -61,37 +92,24 @@ export default function CreatePersonnelPage() {
             <textarea className="form-control" id="bio" name="bio" rows={4}></textarea>
           </div>
           
-          {/* --- UPDATED: Changed from URL input to File input --- */}
+          <div className="mb-3">
+            <label htmlFor="committees" className="form-label">สังกัดคณะกรรมาธิการ</label>
+            <Select id="committees" name="committees" isMulti options={committeeOptions} classNamePrefix="select" placeholder="เลือกคณะกรรมาธิการ..." />
+          </div>
+
           <div className="mb-3">
             <label htmlFor="image_file" className="form-label">รูปภาพ</label>
-            <input 
-              type="file" 
-              className="form-control" 
-              id="image_file" 
-              name="image_file"
-              accept="image/png, image/jpeg, image/webp" 
-            />
-            <div className="form-text">
-              อัปโหลดไฟล์รูปภาพ (PNG, JPG, WebP)
-            </div>
+            <input type="file" className="form-control" id="image_file" name="image_file" accept="image/png, image/jpeg, image/webp" />
           </div>
           
           <div className="form-check mb-3">
-            <input 
-              className="form-check-input" 
-              type="checkbox" 
-              id="is_active" 
-              name="is_active"
-              defaultChecked={true} 
-            />
-            <label className="form-check-label" htmlFor="is_active">
-              ดำรงตำแหน่ง (Active)
-            </label>
+            <input className="form-check-input" type="checkbox" id="is_active" name="is_active" defaultChecked={true} />
+            <label className="form-check-label" htmlFor="is_active">ดำรงตำแหน่ง (Active)</label>
           </div>
           
           <div className="d-flex justify-content-end gap-2 mt-4">
             <Link href="/admin/personnel" className="btn btn-secondary">ยกเลิก</Link>
-            <SubmitButton label="บันทึกข้อมูล" pendingLabel="กำลังบันทึก..." />
+            <SubmitButton label="บันทึกข้อมูล" />
           </div>
         </form>
       </div>
