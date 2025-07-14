@@ -12,7 +12,7 @@ export async function fetchFilteredPersonnel(
   currentPage: number,
   campus: string | null,
   committeeId: string | null,
-  role: string | null, // NEW: Added role filter
+  role: string | null,
   sortBy: string,
   sortOrder: 'asc' | 'desc'
 ) {
@@ -36,7 +36,6 @@ export async function fetchFilteredPersonnel(
     if (committeeId) {
       supabaseQuery = supabaseQuery.contains('committees', [committeeId]);
     }
-    // NEW: Handle role filtering based on the new boolean columns
     if (role) {
       if (role === 'is_party_member') supabaseQuery = supabaseQuery.eq('is_party_member', true);
       if (role === 'is_mp') supabaseQuery = supabaseQuery.eq('is_mp', true);
@@ -61,7 +60,7 @@ export async function fetchPersonnelPages(
     query: string,
     campus: string | null,
     committeeId: string | null,
-    role: string | null // NEW: Added role filter
+    role: string | null
 ) {
     noStore();
     const supabase = createClient();
@@ -79,7 +78,6 @@ export async function fetchPersonnelPages(
         if (committeeId) {
             supabaseQuery = supabaseQuery.contains('committees', [committeeId]);
         }
-        // NEW: Handle role filtering
         if (role) {
             if (role === 'is_party_member') supabaseQuery = supabaseQuery.eq('is_party_member', true);
             if (role === 'is_mp') supabaseQuery = supabaseQuery.eq('is_mp', true);
@@ -105,7 +103,12 @@ export async function fetchPersonnelStats(): Promise<PersonnelStats> {
     noStore();
     const supabase = createClient();
     try {
-        const { data, error } = await supabase.from('personnel').select('is_party_member, is_mp, is_executive, campus');
+        // --- FIXED: Added .eq('is_active', true) to filter only active personnel ---
+        const { data, error } = await supabase
+            .from('personnel')
+            .select('is_party_member, is_mp, is_executive, campus')
+            .eq('is_active', true); // This ensures we count the same set of people as the main dashboard.
+
         if (error) throw error;
         
         const total = data.length;
@@ -137,7 +140,7 @@ export async function fetchPersonnelStats(): Promise<PersonnelStats> {
     }
 }
 
-// --- RESTORED: Functions for Dashboard ---
+// --- Functions for Dashboard ---
 
 export async function fetchCardData(): Promise<DashboardCardData> {
   noStore();
@@ -209,7 +212,7 @@ export async function fetchLatestEvents(): Promise<LatestEvent[]> {
     }
 }
 
-// --- RESTORED: Function for Attendance Tracking Feature ---
+// --- Function for Attendance Tracking Feature ---
 
 export async function fetchAttendanceData(meetingId: string): Promise<AttendanceRecordWithPersonnel[]> {
   noStore();
@@ -264,7 +267,7 @@ export async function fetchAttendanceData(meetingId: string): Promise<Attendance
   }
 }
 
-// --- Helper function to fetch all committees for filter dropdowns ---
+// --- Helper function to fetch all committees ---
 export async function fetchAllCommittees(): Promise<Committee[]> {
     noStore();
     const supabase = createClient();

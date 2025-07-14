@@ -92,7 +92,8 @@ function PersonnelTable({
                                         <td>{getThaiCampusName(person.campus)}</td>
                                         <td>
                                             <div className="d-flex justify-content-center gap-2">
-                                                <Link href={`/personnel/${person.id}/edit`} className="btn btn-info btn-sm">
+                                                {/* --- FIXED: Added '/admin' to the href path --- */}
+                                                <Link href={`/admin/personnel/${person.id}/edit`} className="btn btn-info btn-sm">
                                                     แก้ไข
                                                 </Link>
                                                 <DeleteButton idToDelete={person.id} formAction={deletePersonnel} />
