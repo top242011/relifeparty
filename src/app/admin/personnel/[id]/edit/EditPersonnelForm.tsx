@@ -9,12 +9,15 @@ import SubmitButton from '@/components/admin/SubmitButton';
 import Link from 'next/link';
 import Image from 'next/image';
 import Select from 'react-select';
+import toast from 'react-hot-toast';
 
+// Define the shape for react-select options
 interface SelectOption {
   value: string;
   label: string;
 }
 
+// Props for our form component
 interface EditPersonnelFormProps {
   personnel: Personnel;
   allCommittees: Committee[];
@@ -22,6 +25,8 @@ interface EditPersonnelFormProps {
 
 export default function EditPersonnelForm({ personnel, allCommittees }: EditPersonnelFormProps) {
   const initialState: FormState = { message: null, errors: {} };
+  
+  // Bind the personnel ID to the update action
   const updatePersonnelWithId = updatePersonnel.bind(null, personnel.id);
   const [state, dispatch] = useFormState(updatePersonnelWithId, initialState);
   
@@ -29,11 +34,21 @@ export default function EditPersonnelForm({ personnel, allCommittees }: EditPers
   const [isMp, setIsMp] = useState(personnel.is_mp);
   const [isExecutive, setIsExecutive] = useState(personnel.is_executive);
 
+  // Show error toast if the form submission fails
+  useEffect(() => {
+    if (state.success === false && state.message) {
+      toast.error(state.message);
+    }
+    // Success toast is handled by redirecting with a query param
+  }, [state]);
+
+  // Map committees data to the format required by react-select
   const committeeOptions: SelectOption[] = allCommittees.map(c => ({ 
     value: c.id, 
     label: c.name 
   }));
 
+  // Determine the default selected committees
   const defaultSelectedCommittees = committeeOptions.filter(
     option => personnel.committees?.includes(option.value)
   );
@@ -75,7 +90,26 @@ export default function EditPersonnelForm({ personnel, allCommittees }: EditPers
             <label htmlFor="student_council_position" className="form-label">ตำแหน่งในสภานักศึกษา</label>
             <input type="text" id="student_council_position" name="student_council_position" className="form-control" defaultValue={personnel.student_council_position || ''} placeholder={!isMp && !isExecutive ? '-' : 'กรอกตำแหน่งในสภาฯ'} disabled={!isMp && !isExecutive} />
             <div className="form-text">
-              กรอกตำแหน่งเฉพาะ ส.ส. หรือ กรรมการบริหารพรรค เท่านั้น
+              กรอกตำแหน่งเฉพาะ ส.ส. หรือ กรรมการบริหารพรรค เท่านั้น (หากไม่มีข้อมูล ให้กรอก “-”)
+            </div>
+          </div>
+
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label htmlFor="faculty" className="form-label">คณะ</label>
+              <input type="text" id="faculty" name="faculty" className="form-control" defaultValue={personnel.faculty || ''} />
+            </div>
+            <div className="col-md-6 mb-3">
+              <label htmlFor="year" className="form-label">ชั้นปี</label>
+              <select id="year" name="year" className="form-select" defaultValue={personnel.year || ''}>
+                <option value="">-- ไม่ระบุ --</option>
+                <option value="1">ปี 1</option>
+                <option value="2">ปี 2</option>
+                <option value="3">ปี 3</option>
+                <option value="4">ปี 4</option>
+                <option value="5">ปี 5</option>
+                <option value="6">ปี 6</option>
+              </select>
             </div>
           </div>
 
@@ -87,6 +121,15 @@ export default function EditPersonnelForm({ personnel, allCommittees }: EditPers
                     <option value="Tha Prachan">ท่าพระจันทร์</option>
                     <option value="Lampang">ลำปาง</option>
                 </select>
+            </div>
+            <div className="col-md-6 mb-3">
+              <label htmlFor="gender" className="form-label">เพศ</label>
+              <select id="gender" name="gender" className="form-select" defaultValue={personnel.gender || 'not_specified'}>
+                <option value="not_specified">-- ไม่ระบุ --</option>
+                <option value="male">ชาย</option>
+                <option value="female">หญิง</option>
+                <option value="other">อื่นๆ</option>
+              </select>
             </div>
           </div>
 

@@ -73,16 +73,19 @@ export type News = {
 export type Personnel = {
     id: string;
     name: string;
-    party_position: string | null; // New field
-    student_council_position: string | null; // Renamed field
+    party_position: string | null;
+    student_council_position: string | null;
     bio: string | null;
     image_url: string | null;
     is_active: boolean;
-    is_party_member: boolean; // New role field
-    is_mp: boolean; // New role field
-    is_executive: boolean; // New role field
+    is_party_member: boolean;
+    is_mp: boolean;
+    is_executive: boolean;
     campus: string;
     committees: string[] | null;
+    faculty: string | null; // New field
+    year: number | null;    // New field
+    gender: string | null;  // New field
 };
 
 export type Meeting = {
@@ -131,15 +134,25 @@ export type DashboardCardData = {
   attendanceRate: number;
 };
 
-// NEW: Type for the new personnel stats dashboard
+// NEW: Expanded PersonnelStats type for the new dashboard elements
 export type PersonnelStats = {
   total: number;
   members: number;
   mps: number;
   executives: number;
   byCampus: { name: string; value: number }[];
+  byGender: { name: string; value: number }[];
+  byFaculty: { name: string; value: number; members: Personnel[] }[];
+  byYear: {
+    name: string;
+    value: number;
+    roles: {
+      members: Personnel[];
+      mps: Personnel[];
+      executives: Personnel[];
+    }
+  }[];
 };
-
 
 export type LatestEvent = {
   id: string;
@@ -147,3 +160,5 @@ export type LatestEvent = {
   location: string | null;
   eventDate: string;
 };
+
+

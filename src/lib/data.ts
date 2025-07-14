@@ -99,15 +99,15 @@ export async function fetchPersonnelPages(
     }
 }
 
+// UPDATED: fetchPersonnelStats to include new aggregations
 export async function fetchPersonnelStats(): Promise<PersonnelStats> {
     noStore();
     const supabase = createClient();
     try {
-        // --- FIXED: Added .eq('is_active', true) to filter only active personnel ---
         const { data, error } = await supabase
             .from('personnel')
-            .select('is_party_member, is_mp, is_executive, campus')
-            .eq('is_active', true); // This ensures we count the same set of people as the main dashboard.
+            .select('name, is_party_member, is_mp, is_executive, campus, faculty, year, gender')
+            .eq('is_active', true);
 
         if (error) throw error;
         
@@ -116,23 +116,50 @@ export async function fetchPersonnelStats(): Promise<PersonnelStats> {
         const mps = data.filter(p => p.is_mp).length;
         const executives = data.filter(p => p.is_executive).length;
 
+        // --- Aggregate by Campus (Existing) ---
         const campusCounts = data.reduce((acc, p) => {
             acc[p.campus] = (acc[p.campus] || 0) + 1;
             return acc;
         }, {} as { [key: string]: number });
+        const campusMap: { [key: string]: string } = { 'Rangsit': 'รังสิต', 'Tha Prachan': 'ท่าพระจันทร์', 'Lampang': 'ลำปาง' };
+        const byCampus = Object.entries(campusCounts).map(([name, value]) => ({ name: campusMap[name] || name, value }));
 
-        const campusMap: { [key: string]: string } = {
-            'Rangsit': 'รังสิต',
-            'Tha Prachan': 'ท่าพระจันทร์',
-            'Lampang': 'ลำปาง',
-        };
+        // --- NEW: Aggregate by Gender ---
+        const genderCounts = data.reduce((acc, p) => {
+            const gender = p.gender || 'ไม่ระบุ';
+            acc[gender] = (acc[gender] || 0) + 1;
+            return acc;
+        }, {} as { [key: string]: number });
+        const genderMap: { [key: string]: string } = { 'male': 'ชาย', 'female': 'หญิง', 'other': 'อื่นๆ', 'not_specified': 'ไม่ระบุ' };
+        const byGender = Object.entries(genderCounts).map(([name, value]) => ({ name: genderMap[name] || name, value }));
 
-        const byCampus = Object.entries(campusCounts).map(([name, value]) => ({
-            name: campusMap[name] || name,
-            value,
-        }));
+        // --- NEW: Aggregate by Faculty ---
+        const facultyGroups = data.reduce((acc, p) => {
+            const faculty = p.faculty || 'ไม่ระบุคณะ';
+            if (!acc[faculty]) {
+                acc[faculty] = { name: faculty, value: 0, members: [] };
+            }
+            acc[faculty].value++;
+            acc[faculty].members.push(p as Personnel);
+            return acc;
+        }, {} as { [key: string]: { name: string; value: number; members: Personnel[] } });
+        const byFaculty = Object.values(facultyGroups).sort((a, b) => b.value - a.value);
 
-        return { total, members, mps, executives, byCampus };
+        // --- NEW: Aggregate by Year ---
+        const yearGroups = data.reduce((acc, p) => {
+            const year = p.year ? `ปี ${p.year}` : 'ไม่ระบุชั้นปี';
+            if (!acc[year]) {
+                acc[year] = { name: year, value: 0, roles: { members: [], mps: [], executives: [] } };
+            }
+            acc[year].value++;
+            if (p.is_party_member) acc[year].roles.members.push(p as Personnel);
+            if (p.is_mp) acc[year].roles.mps.push(p as Personnel);
+            if (p.is_executive) acc[year].roles.executives.push(p as Personnel);
+            return acc;
+        }, {} as { [key: string]: { name: string; value: number; roles: { members: Personnel[]; mps: Personnel[]; executives: Personnel[] } } });
+        const byYear = Object.values(yearGroups).sort((a,b) => a.name.localeCompare(b.name));
+
+        return { total, members, mps, executives, byCampus, byGender, byFaculty, byYear };
 
     } catch (error) {
         console.error('Database Error (fetchPersonnelStats):', error);

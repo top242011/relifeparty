@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Select from 'react-select';
 import { createClient } from '../../../../../utils/supabase/client';
+import toast from 'react-hot-toast';
 
 interface SelectOption {
   value: string;
@@ -19,21 +20,35 @@ export default function CreatePersonnelPage() {
   const initialState: FormState = { message: null, errors: {} };
   const [state, dispatch] = useFormState(createPersonnel, initialState);
   const [committeeOptions, setCommitteeOptions] = useState<SelectOption[]>([]);
-  
-  // State to manage role checkboxes
+
+  // State to manage role checkboxes to conditionally disable the position input
   const [isMp, setIsMp] = useState(false);
   const [isExecutive, setIsExecutive] = useState(false);
 
+  // Fetch committees on component mount to populate the select input
   useEffect(() => {
     const fetchCommittees = async () => {
       const supabase = createClient();
-      const { data } = await supabase.from('committees').select('id, name').order('name');
-      if (data) {
+      const { data, error } = await supabase
+        .from('committees')
+        .select('id, name')
+        .order('name');
+
+      if (error) {
+        toast.error('Could not load committees.');
+      } else if (data) {
         setCommitteeOptions(data.map(c => ({ value: c.id, label: c.name })));
       }
     };
     fetchCommittees();
   }, []);
+
+  // Show error toast if the form submission fails
+  useEffect(() => {
+    if (state.success === false && state.message) {
+      toast.error(state.message)
+    }
+  }, [state])
 
   return (
     <>
@@ -62,7 +77,7 @@ export default function CreatePersonnelPage() {
               <label className="form-check-label" htmlFor="is_executive">กรรมการบริหารพรรค</label>
             </div>
           </div>
-          
+
           <div className="mb-3">
             <label htmlFor="party_position" className="form-label">ตำแหน่งในพรรค</label>
             <input type="text" id="party_position" name="party_position" className="form-control" />
@@ -71,8 +86,27 @@ export default function CreatePersonnelPage() {
           <div className="mb-3">
             <label htmlFor="student_council_position" className="form-label">ตำแหน่งในสภานักศึกษา</label>
             <input type="text" id="student_council_position" name="student_council_position" className="form-control" placeholder={!isMp && !isExecutive ? '-' : 'กรอกตำแหน่งในสภาฯ'} disabled={!isMp && !isExecutive} />
-             <div className="form-text">
+            <div className="form-text">
               กรอกตำแหน่งเฉพาะ ส.ส. หรือ กรรมการบริหารพรรค เท่านั้น
+            </div>
+          </div>
+
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label htmlFor="faculty" className="form-label">คณะ</label>
+              <input type="text" id="faculty" name="faculty" className="form-control" />
+            </div>
+            <div className="col-md-6 mb-3">
+              <label htmlFor="year" className="form-label">ชั้นปี</label>
+              <select id="year" name="year" className="form-select">
+                <option value="">-- ไม่ระบุ --</option>
+                <option value="1">ปี 1</option>
+                <option value="2">ปี 2</option>
+                <option value="3">ปี 3</option>
+                <option value="4">ปี 4</option>
+                <option value="5">ปี 5+</option>
+                <option value="6">ปี 6+</option>
+              </select>
             </div>
           </div>
 
@@ -85,13 +119,22 @@ export default function CreatePersonnelPage() {
                 <option value="Lampang">ลำปาง</option>
               </select>
             </div>
+            <div className="col-md-6 mb-3">
+              <label htmlFor="gender" className="form-label">เพศ</label>
+              <select id="gender" name="gender" className="form-select">
+                <option value="not_specified">-- ไม่ระบุ --</option>
+                <option value="male">ชาย</option>
+                <option value="female">หญิง</option>
+                <option value="other">อื่นๆ</option>
+              </select>
+            </div>
           </div>
 
           <div className="mb-3">
             <label htmlFor="bio" className="form-label">ประวัติโดยย่อ</label>
             <textarea className="form-control" id="bio" name="bio" rows={4}></textarea>
           </div>
-          
+
           <div className="mb-3">
             <label htmlFor="committees" className="form-label">สังกัดคณะกรรมาธิการ</label>
             <Select id="committees" name="committees" isMulti options={committeeOptions} classNamePrefix="select" placeholder="เลือกคณะกรรมาธิการ..." />
@@ -101,12 +144,12 @@ export default function CreatePersonnelPage() {
             <label htmlFor="image_file" className="form-label">รูปภาพ</label>
             <input type="file" className="form-control" id="image_file" name="image_file" accept="image/png, image/jpeg, image/webp" />
           </div>
-          
+
           <div className="form-check mb-3">
             <input className="form-check-input" type="checkbox" id="is_active" name="is_active" defaultChecked={true} />
             <label className="form-check-label" htmlFor="is_active">ดำรงตำแหน่ง (Active)</label>
           </div>
-          
+
           <div className="d-flex justify-content-end gap-2 mt-4">
             <Link href="/admin/personnel" className="btn btn-secondary">ยกเลิก</Link>
             <SubmitButton label="บันทึกข้อมูล" />

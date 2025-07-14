@@ -31,10 +31,14 @@ const PersonnelFormSchema = z.object({
   is_mp: z.boolean(),
   is_executive: z.boolean(),
   campus: z.string(),
+  faculty: z.string().optional().nullable(),
+  year: z.coerce.number().optional().nullable(),
+  gender: z.string().optional().nullable(),
   committees: z.array(z.string()).optional(),
 });
 
-// --- RESTORED: Generic Action Handler for simple forms ---
+
+// --- Generic Action Handler for simple forms ---
 async function handleFormAction<T extends z.ZodType<any, any>>(
     formData: FormData,
     schema: T,
@@ -99,7 +103,7 @@ async function uploadImage(supabase: any, file: File): Promise<string | null> {
     return data.publicUrl;
 }
 
-// --- Personnel Actions (New Logic) ---
+// --- Personnel Actions ---
 export async function createPersonnel(prevState: FormState, formData: FormData): Promise<FormState> {
     const supabase = createClient();
     
@@ -122,6 +126,9 @@ export async function createPersonnel(prevState: FormState, formData: FormData):
         is_mp: isMp,
         is_executive: isExecutive,
         campus: formData.get('campus'),
+        faculty: formData.get('faculty'),
+        year: formData.get('year'),
+        gender: formData.get('gender'),
         committees: formData.getAll('committees').map(String),
     });
 
@@ -167,6 +174,9 @@ export async function updatePersonnel(id: string, prevState: FormState, formData
         is_mp: isMp,
         is_executive: isExecutive,
         campus: formData.get('campus'),
+        faculty: formData.get('faculty'),
+        year: formData.get('year'),
+        gender: formData.get('gender'),
         committees: formData.getAll('committees').map(String),
     });
 
@@ -193,7 +203,7 @@ export async function updatePersonnel(id: string, prevState: FormState, formData
     redirect(`/admin/personnel?message=แก้ไขข้อมูลบุคลากรสำเร็จ!`);
 }
 
-// --- RESTORED: Actions for other modules ---
+// --- Actions for other modules ---
 
 // Create Actions
 export const createPolicy = (prevState: FormState, formData: FormData) => handleFormAction(formData, PolicySchema.omit({ id: true }), 'policies', '/admin/policies', 'create');
@@ -221,7 +231,7 @@ export const updateNews = async (id: string, prevState: FormState, formData: For
     return handleFormAction(formData, NewsSchema, 'news', '/admin/news', 'update');
 };
 
-// --- RESTORED: Generic Delete Action ---
+// --- Generic Delete Action ---
 async function deleteItem(formData: FormData, tableName: string, revalidatePathUrl: string) {
     const supabase = createClient();
     const id = formData.get('id')?.toString();
@@ -250,7 +260,7 @@ export const deletePersonnel = async (formData: FormData) => {
     }
 };
 
-// --- RESTORED: Other specific actions ---
+// --- Other specific actions ---
 export async function updateMotionResult(motionId: string, result: 'ผ่าน' | 'ไม่ผ่าน' | 'รอลงมติ') {
   'use server';
   const supabase = createClient();
