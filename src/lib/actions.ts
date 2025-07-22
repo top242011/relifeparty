@@ -46,10 +46,8 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
     action: 'create' | 'update'
 ): Promise<FormState> {
     const supabase = createClient();
-    // Use a new variable for raw form data to avoid mutating the original
     const rawFormData = Object.fromEntries(formData.entries());
     
-    // For update actions, ensure the ID from the URL is included for validation
     if (action === 'update' && !rawFormData.id && formData.get('id')) {
       rawFormData.id = formData.get('id') as string;
     }
@@ -81,19 +79,16 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
 
     revalidatePath(redirectPath, 'layout');
 
-    // Redirect logic remains the same, but now it's only called on success
     if (action === 'create' && tableName === 'meetings') {
         const newMeetingId = result.data?.id;
         if (newMeetingId) {
             redirect(`${redirectPath}/${newMeetingId}/edit`);
         }
     } else {
-      // For updates, redirect with a success message
       const successMessage = action === 'create' ? 'สร้างข้อมูลสำเร็จ!' : 'อัปเดตข้อมูลสำเร็จ!';
       redirect(`${redirectPath}?message=${encodeURIComponent(successMessage)}`);
     }
     
-    // This return is for type consistency, but redirect will interrupt the execution
     return { success: true, message: 'ดำเนินการสำเร็จ!' };
 }
 
@@ -240,69 +235,87 @@ export const createMeeting = (prevState: FormState, formData: FormData) => handl
 export const createMotion = (prevState: FormState, formData: FormData) => handleFormAction(formData, MotionSchema.omit({ id: true }), 'motions', '/admin/motions', 'create');
 
 // Update Actions
-export const updatePolicy = async (id: string, prevState: FormState, formData: FormData) => {
-    formData.set('id', id);
-    return handleFormAction(formData, PolicySchema, 'policies', '/admin/policies', 'update');
-};
-export const updateCommittee = async (id: string, prevState: FormState, formData: FormData) => {
-  formData.set('id', id);
-  return handleFormAction(formData, CommitteeSchema, 'committees', '/admin/committees', 'update');
-};
-export const updateEvent = async (id: string, prevState: FormState, formData: FormData) => {
-    formData.set('id', id);
-    return handleFormAction(formData, EventSchema, 'events', '/admin/events', 'update');
-};
-export const updateNews = async (id: string, prevState: FormState, formData: FormData) => {
-    formData.set('id', id);
-    return handleFormAction(formData, NewsSchema, 'news', '/admin/news', 'update');
-};
+export const updatePolicy = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, PolicySchema, 'policies', '/admin/policies', 'update');
+export const updateCommittee = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, CommitteeSchema, 'committees', '/admin/committees', 'update');
+export const updateEvent = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, EventSchema, 'events', '/admin/events', 'update');
+export const updateNews = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, NewsSchema, 'news', '/admin/news', 'update');
 
 // --- Generic Delete Action ---
+// --- FIX: This function now returns a state object instead of throwing an error ---
 async function deleteItem(formData: FormData, tableName: string, revalidatePathUrl: string): Promise<{ success: boolean; message: string }> {
     const supabase = createClient();
     const id = formData.get('id')?.toString();
+    
     if (!id) {
-        throw new Error('ID is required for deletion');
+        return { success: false, message: 'ไม่พบ ID สำหรับการลบ' };
     }
     
-    const { error } = await supabase.from(tableName).delete().eq('id', id);
-    if (error) {
-        throw new Error(`Database Error: ${error.message}`);
+    try {
+        const { error } = await supabase.from(tableName).delete().eq('id', id);
+        if (error) {
+            return { success: false, message: `Database Error: ${error.message}` };
+        }
+        
+        revalidatePath(revalidatePathUrl, 'layout');
+        return { success: true, message: 'ลบข้อมูลสำเร็จ' };
+    } catch (e: any) {
+        return { success: false, message: `An unexpected error occurred: ${e.message}` };
     }
-    
-    revalidatePath(revalidatePathUrl, 'layout');
-    return { success: true, message: 'ลบข้อมูลสำเร็จ' };
 }
 
 
-// Delete Actions
-export const deletePolicy = (formData: FormData) => deleteItem(formData, 'policies', '/admin/policies').then(() => redirect('/admin/policies?message=ลบข้อมูลสำเร็จ!'));
-export const deleteCommittee = (formData: FormData) => deleteItem(formData, 'committees', '/admin/committees').then(() => redirect('/admin/committees?message=ลบข้อมูลสำเร็จ!'));
-export const deleteEvent = (formData: FormData) => deleteItem(formData, 'events', '/admin/events').then(() => redirect('/admin/events?message=ลบข้อมูลสำเร็จ!'));
-export const deleteNews = (formData: FormData) => deleteItem(formData, 'news', '/admin/news').then(() => redirect('/admin/news?message=ลบข้อมูลสำเร็จ!'));
-export const deleteMeeting = (formData: FormData) => deleteItem(formData, 'meetings', '/admin/meetings').then(() => redirect('/admin/meetings?message=ลบข้อมูลสำเร็จ!'));
-export const deleteMotion = (formData: FormData) => deleteItem(formData, 'motions', '/admin/motions').then(() => redirect('/admin/motions?message=ลบข้อมูลสำเร็จ!'));
+// --- FIX: Refactored all delete actions to handle the returned state from deleteItem ---
+export const deletePolicy = async (formData: FormData) => {
+    const result = await deleteItem(formData, 'policies', '/admin/policies');
+    const redirectUrl = result.success ? `/admin/policies?message=${encodeURIComponent(result.message)}` : `/admin/policies?error=${encodeURIComponent(result.message)}`;
+    redirect(redirectUrl);
+};
+export const deleteCommittee = async (formData: FormData) => {
+    const result = await deleteItem(formData, 'committees', '/admin/committees');
+    const redirectUrl = result.success ? `/admin/committees?message=${encodeURIComponent(result.message)}` : `/admin/committees?error=${encodeURIComponent(result.message)}`;
+    redirect(redirectUrl);
+};
+export const deleteEvent = async (formData: FormData) => {
+    const result = await deleteItem(formData, 'events', '/admin/events');
+    const redirectUrl = result.success ? `/admin/events?message=${encodeURIComponent(result.message)}` : `/admin/events?error=${encodeURIComponent(result.message)}`;
+    redirect(redirectUrl);
+};
+export const deleteNews = async (formData: FormData) => {
+    const result = await deleteItem(formData, 'news', '/admin/news');
+    const redirectUrl = result.success ? `/admin/news?message=${encodeURIComponent(result.message)}` : `/admin/news?error=${encodeURIComponent(result.message)}`;
+    redirect(redirectUrl);
+};
+export const deleteMeeting = async (formData: FormData) => {
+    const result = await deleteItem(formData, 'meetings', '/admin/meetings');
+    const redirectUrl = result.success ? `/admin/meetings?message=${encodeURIComponent(result.message)}` : `/admin/meetings?error=${encodeURIComponent(result.message)}`;
+    redirect(redirectUrl);
+};
+export const deleteMotion = async (formData: FormData) => {
+    const result = await deleteItem(formData, 'motions', '/admin/motions');
+    const redirectUrl = result.success ? `/admin/motions?message=${encodeURIComponent(result.message)}` : `/admin/motions?error=${encodeURIComponent(result.message)}`;
+    redirect(redirectUrl);
+};
 export const deletePersonnel = async (formData: FormData) => {
-    try {
-        await deleteItem(formData, 'personnel', '/admin/personnel');
-        redirect('/admin/personnel?message=ลบข้อมูลบุคลากรสำเร็จ!');
-    } catch (e: any) {
-        redirect(`/admin/personnel?error=${encodeURIComponent(e.message)}`);
-    }
+    const result = await deleteItem(formData, 'personnel', '/admin/personnel');
+    const redirectUrl = result.success ? `/admin/personnel?message=${encodeURIComponent(result.message)}` : `/admin/personnel?error=${encodeURIComponent(result.message)}`;
+    redirect(redirectUrl);
 };
 
-// --- Other specific actions (no changes) ---
+// --- Other specific actions ---
 export async function updateMotionResult(motionId: string, result: 'ผ่าน' | 'ไม่ผ่าน' | 'รอลงมติ') {
   'use server';
   const supabase = createClient();
   try {
     const { error } = await supabase.from('motions').update({ result }).eq('id', motionId);
-    if (error) throw error;
+    // --- FIX: Handle error by returning a state object ---
+    if (error) {
+        return { success: false, message: `Database Error: ${error.message}` };
+    }
     revalidatePath('/admin/motions', 'layout');
     revalidatePath(`/admin/motions/${motionId}/edit`, 'page');
     return { success: true, message: 'อัปเดตผลการลงมติสำเร็จ!' };
   } catch (e: any) {
-    return { success: false, message: `Database Error: ${e.message}` };
+    return { success: false, message: `An unexpected error occurred: ${e.message}` };
   }
 }
 
@@ -324,7 +337,9 @@ export async function updateAttendance(meetingId: string, formData: FormData) {
 
   try {
     const { error } = await supabase.from('attendance_records').upsert(recordsToUpsert, { onConflict: 'meeting_id, personnel_id' });
-    if (error) throw error;
+    if (error) {
+        return { success: false, message: `Database Error: ${error.message}` };
+    }
     revalidatePath(`/admin/meetings/${meetingId}/edit`);
     return { success: true, message: 'บันทึกข้อมูลการเข้าประชุมสำเร็จ!' };
   } catch (e: any) {

@@ -1,8 +1,8 @@
-// src/app/admin/meetings/page.tsx
-
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+// --- FIX: Remove direct imports from supabase/ssr and cookies ---
+// import { cookies } from 'next/headers';
+// import { createServerClient } from '@supabase/ssr';
+import { createClient } from '../../../../utils/supabase/server'; // --- FIX: Import the centralized client ---
 import DeleteButton from '@/components/admin/DeleteButton';
 import { deleteMeeting } from '@/lib/actions';
 
@@ -24,17 +24,8 @@ const getScopeBadge = (scope: string) => {
 };
 
 export default async function AdminMeetingsPage() {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookies().get(name)?.value;
-        },
-      },
-    }
-  );
+  // --- FIX: Use the centralized createClient function ---
+  const supabase = createClient();
 
   const { data: meetings, error } = await supabase
     .from('meetings')

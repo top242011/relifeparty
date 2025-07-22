@@ -1,8 +1,8 @@
-// src/app/admin/motions/page.tsx
-
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+// --- FIX: Remove direct imports from supabase/ssr and cookies ---
+// import { cookies } from 'next/headers';
+// import { createServerClient } from '@supabase/ssr';
+import { createClient } from '../../../../utils/supabase/server'; // --- FIX: Import the centralized client ---
 import DeleteButton from '@/components/admin/DeleteButton';
 import { deleteMotion } from '@/lib/actions';
 
@@ -21,17 +21,8 @@ const getResultBadge = (result: string | null) => {
 };
 
 export default async function AdminMotionsPage() {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookies().get(name)?.value;
-        },
-      },
-    }
-  );
+  // --- FIX: Use the centralized createClient function ---
+  const supabase = createClient();
 
   const { data: motions, error } = await supabase
     .from('motions')

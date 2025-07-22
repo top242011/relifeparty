@@ -1,8 +1,8 @@
-// src/app/admin/policies/page.tsx
-
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+// --- FIX: Remove direct imports from supabase/ssr and cookies ---
+// import { cookies } from 'next/headers';
+// import { createServerClient } from '@supabase/ssr';
+import { createClient } from '../../../../utils/supabase/server'; // --- FIX: Import the centralized client ---
 import { Policy } from '@/lib/definitions';
 import DeleteButton from '@/components/admin/DeleteButton';
 import { deletePolicy } from '@/lib/actions';
@@ -10,17 +10,8 @@ import { deletePolicy } from '@/lib/actions';
 export const dynamic = 'force-dynamic';
 
 export default async function PoliciesPage() {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookies().get(name)?.value;
-        },
-      },
-    }
-  );
+  // --- FIX: Use the centralized createClient function ---
+  const supabase = createClient();
 
   const { data: policies, error } = await supabase
     .from('policies')
