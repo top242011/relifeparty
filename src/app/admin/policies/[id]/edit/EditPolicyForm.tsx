@@ -25,9 +25,6 @@ export default function EditPolicyForm({ policy }: { policy: Policy }) {
     if (state.success) {
       toast.success(state.message || 'บันทึกข้อมูลสำเร็จ!');
       // Optional: redirect after a delay to let the user see the toast
-      setTimeout(() => {
-        router.push('/admin/policies');
-      }, 1500);
     } else if (state.message) {
       toast.error(state.message);
     }

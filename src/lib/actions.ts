@@ -200,6 +200,7 @@ export async function updatePersonnel(id: string, prevState: FormState, formData
 
     revalidatePath('/admin/personnel', 'layout');
     revalidatePath(`/admin/personnel/${id}/edit`, 'page');
+    // ส่ง message ไปกับ URL เพื่อให้ ToastNotifier แสดงผล
     redirect(`/admin/personnel?message=แก้ไขข้อมูลบุคลากรสำเร็จ!`);
 }
 

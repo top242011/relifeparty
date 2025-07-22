@@ -25,7 +25,6 @@ export default function EditNewsForm({ news }: { news: News }) {
   useEffect(() => {
     if (state.success) {
       toast.success(state.message || 'บันทึกข้อมูลสำเร็จ!');
-      setTimeout(() => router.push('/admin/news'), 1500);
     } else if (state.message) {
       toast.error(state.message);
     }
