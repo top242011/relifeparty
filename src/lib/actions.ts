@@ -38,18 +38,21 @@ const PersonnelFormSchema = z.object({
 
 
 // --- Generic Action Handler for simple forms ---
+// --- FIX: Modified to accept an optional ID for update actions ---
 async function handleFormAction<T extends z.ZodType<any, any>>(
     formData: FormData,
     schema: T,
     tableName: string,
     redirectPath: string,
-    action: 'create' | 'update'
+    action: 'create' | 'update',
+    idToUpdate?: string
 ): Promise<FormState> {
     const supabase = createClient();
     const rawFormData = Object.fromEntries(formData.entries());
     
-    if (action === 'update' && !rawFormData.id && formData.get('id')) {
-      rawFormData.id = formData.get('id') as string;
+    // --- FIX: Manually add the ID to the form data object before validation ---
+    if (action === 'update' && idToUpdate) {
+      rawFormData.id = idToUpdate;
     }
 
     const validatedFields = schema.safeParse(rawFormData);
@@ -69,7 +72,6 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
             result = await supabase.from(tableName).update(data).eq('id', id);
         }
         
-        // --- FIX: Correctly handle database errors by returning a state object ---
         if (result.error) {
             return { success: false, message: `Database Error: ${result.error.message}` };
         }
@@ -234,14 +236,13 @@ export const createNews = (prevState: FormState, formData: FormData) => handleFo
 export const createMeeting = (prevState: FormState, formData: FormData) => handleFormAction(formData, MeetingSchema.omit({ id: true }), 'meetings', '/admin/meetings', 'create');
 export const createMotion = (prevState: FormState, formData: FormData) => handleFormAction(formData, MotionSchema.omit({ id: true }), 'motions', '/admin/motions', 'create');
 
-// Update Actions
-export const updatePolicy = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, PolicySchema, 'policies', '/admin/policies', 'update');
-export const updateCommittee = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, CommitteeSchema, 'committees', '/admin/committees', 'update');
-export const updateEvent = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, EventSchema, 'events', '/admin/events', 'update');
-export const updateNews = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, NewsSchema, 'news', '/admin/news', 'update');
+// --- FIX: Update actions now pass the ID as the final argument to handleFormAction ---
+export const updatePolicy = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, PolicySchema, 'policies', '/admin/policies', 'update', id);
+export const updateCommittee = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, CommitteeSchema, 'committees', '/admin/committees', 'update', id);
+export const updateEvent = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, EventSchema, 'events', '/admin/events', 'update', id);
+export const updateNews = (id: string, prevState: FormState, formData: FormData) => handleFormAction(formData, NewsSchema, 'news', '/admin/news', 'update', id);
 
-// --- Generic Delete Action ---
-// --- FIX: This function now returns a state object instead of throwing an error ---
+// Generic Delete Action (no changes from previous fix)
 async function deleteItem(formData: FormData, tableName: string, revalidatePathUrl: string): Promise<{ success: boolean; message: string }> {
     const supabase = createClient();
     const id = formData.get('id')?.toString();
@@ -263,8 +264,7 @@ async function deleteItem(formData: FormData, tableName: string, revalidatePathU
     }
 }
 
-
-// --- FIX: Refactored all delete actions to handle the returned state from deleteItem ---
+// Delete Actions (no changes from previous fix)
 export const deletePolicy = async (formData: FormData) => {
     const result = await deleteItem(formData, 'policies', '/admin/policies');
     const redirectUrl = result.success ? `/admin/policies?message=${encodeURIComponent(result.message)}` : `/admin/policies?error=${encodeURIComponent(result.message)}`;
@@ -301,13 +301,12 @@ export const deletePersonnel = async (formData: FormData) => {
     redirect(redirectUrl);
 };
 
-// --- Other specific actions ---
+// --- Other specific actions (no changes from previous fix) ---
 export async function updateMotionResult(motionId: string, result: 'ผ่าน' | 'ไม่ผ่าน' | 'รอลงมติ') {
   'use server';
   const supabase = createClient();
   try {
     const { error } = await supabase.from('motions').update({ result }).eq('id', motionId);
-    // --- FIX: Handle error by returning a state object ---
     if (error) {
         return { success: false, message: `Database Error: ${error.message}` };
     }
