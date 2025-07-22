@@ -37,7 +37,7 @@ const PersonnelFormSchema = z.object({
 });
 
 
-// --- Generic Action Handler for simple forms (no changes) ---
+// --- Generic Action Handler for simple forms ---
 async function handleFormAction<T extends z.ZodType<any, any>>(
     formData: FormData,
     schema: T,
@@ -46,8 +46,14 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
     action: 'create' | 'update'
 ): Promise<FormState> {
     const supabase = createClient();
+    // Use a new variable for raw form data to avoid mutating the original
     const rawFormData = Object.fromEntries(formData.entries());
     
+    // For update actions, ensure the ID from the URL is included for validation
+    if (action === 'update' && !rawFormData.id && formData.get('id')) {
+      rawFormData.id = formData.get('id') as string;
+    }
+
     const validatedFields = schema.safeParse(rawFormData);
 
     if (!validatedFields.success) {
@@ -64,8 +70,9 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
             if (!id) return { success: false, message: 'ไม่พบ ID สำหรับการอัปเดต' };
             result = await supabase.from(tableName).update(data).eq('id', id);
         }
+        
+        // --- FIX: Correctly handle database errors by returning a state object ---
         if (result.error) {
-            // FIX: Return a state object instead of throwing
             return { success: false, message: `Database Error: ${result.error.message}` };
         }
     } catch (e: any) {
@@ -74,16 +81,20 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
 
     revalidatePath(redirectPath, 'layout');
 
+    // Redirect logic remains the same, but now it's only called on success
     if (action === 'create' && tableName === 'meetings') {
         const newMeetingId = result.data?.id;
         if (newMeetingId) {
             redirect(`${redirectPath}/${newMeetingId}/edit`);
         }
     } else {
-      redirect(redirectPath);
+      // For updates, redirect with a success message
+      const successMessage = action === 'create' ? 'สร้างข้อมูลสำเร็จ!' : 'อัปเดตข้อมูลสำเร็จ!';
+      redirect(`${redirectPath}?message=${encodeURIComponent(successMessage)}`);
     }
     
-    return { success: true, message: action === 'create' ? 'สร้างข้อมูลสำเร็จ!' : 'อัปเดตข้อมูลสำเร็จ!' };
+    // This return is for type consistency, but redirect will interrupt the execution
+    return { success: true, message: 'ดำเนินการสำเร็จ!' };
 }
 
 // --- Helper function for file upload (no changes) ---
@@ -105,7 +116,7 @@ async function uploadImage(supabase: any, file: File): Promise<string | null> {
     return data.publicUrl;
 }
 
-// --- Personnel Actions ---
+// --- Personnel Actions (Error handling re-verified) ---
 export async function createPersonnel(prevState: FormState, formData: FormData): Promise<FormState> {
     const supabase = createClient();
     
@@ -145,12 +156,10 @@ export async function createPersonnel(prevState: FormState, formData: FormData):
         if (imageFile && imageFile.size > 0) { imageUrl = await uploadImage(supabase, imageFile); }
         const { error } = await supabase.from('personnel').insert({ ...validatedFields.data, image_url: imageUrl });
         
-        // --- FIX: Handle Supabase error by returning a state object ---
         if (error) {
             return { success: false, message: `Database Error: ${error.message}` };
         }
     } catch (e: any) {
-        // This will now catch unexpected errors like failed image uploads
         return { success: false, message: `An unexpected error occurred: ${e.message}` };
     }
 
@@ -195,7 +204,7 @@ export async function updatePersonnel(id: string, prevState: FormState, formData
     const { id: personnelId, ...dataToUpdate } = validatedFields.data;
 
     try {
-        let imageUrl: string | null = null; // Use null to avoid overwriting with null if no new file
+        let imageUrl: string | null | undefined = undefined; 
         if (imageFile && imageFile.size > 0) {
             imageUrl = await uploadImage(supabase, imageFile);
         }
@@ -207,7 +216,6 @@ export async function updatePersonnel(id: string, prevState: FormState, formData
 
         const { error } = await supabase.from('personnel').update(updatePayload).eq('id', id);
         
-        // --- FIX: Handle Supabase error by returning a state object ---
         if (error) {
             return { success: false, message: `Database Error: ${error.message}` };
         }
@@ -221,7 +229,7 @@ export async function updatePersonnel(id: string, prevState: FormState, formData
 }
 
 
-// --- Actions for other modules (no changes) ---
+// --- Actions for other modules ---
 
 // Create Actions
 export const createPolicy = (prevState: FormState, formData: FormData) => handleFormAction(formData, PolicySchema.omit({ id: true }), 'policies', '/admin/policies', 'create');
@@ -249,32 +257,37 @@ export const updateNews = async (id: string, prevState: FormState, formData: For
     return handleFormAction(formData, NewsSchema, 'news', '/admin/news', 'update');
 };
 
-// --- Generic Delete Action (no changes) ---
-async function deleteItem(formData: FormData, tableName: string, revalidatePathUrl: string) {
+// --- Generic Delete Action ---
+async function deleteItem(formData: FormData, tableName: string, revalidatePathUrl: string): Promise<{ success: boolean; message: string }> {
     const supabase = createClient();
     const id = formData.get('id')?.toString();
-    if (!id) throw new Error('ID is required for deletion');
+    if (!id) {
+        throw new Error('ID is required for deletion');
+    }
     
     const { error } = await supabase.from(tableName).delete().eq('id', id);
-    if (error) throw new Error(`Database Error: ${error.message}`);
+    if (error) {
+        throw new Error(`Database Error: ${error.message}`);
+    }
     
     revalidatePath(revalidatePathUrl, 'layout');
     return { success: true, message: 'ลบข้อมูลสำเร็จ' };
 }
 
-// Delete Actions (no changes)
-export const deletePolicy = (formData: FormData) => deleteItem(formData, 'policies', '/admin/policies').then(() => redirect('/admin/policies'));
-export const deleteCommittee = (formData: FormData) => deleteItem(formData, 'committees', '/admin/committees').then(() => redirect('/admin/committees'));
-export const deleteEvent = (formData: FormData) => deleteItem(formData, 'events', '/admin/events').then(() => redirect('/admin/events'));
-export const deleteNews = (formData: FormData) => deleteItem(formData, 'news', '/admin/news').then(() => redirect('/admin/news'));
-export const deleteMeeting = (formData: FormData) => deleteItem(formData, 'meetings', '/admin/meetings').then(() => redirect('/admin/meetings'));
-export const deleteMotion = (formData: FormData) => deleteItem(formData, 'motions', '/admin/motions').then(() => redirect('/admin/motions'));
+
+// Delete Actions
+export const deletePolicy = (formData: FormData) => deleteItem(formData, 'policies', '/admin/policies').then(() => redirect('/admin/policies?message=ลบข้อมูลสำเร็จ!'));
+export const deleteCommittee = (formData: FormData) => deleteItem(formData, 'committees', '/admin/committees').then(() => redirect('/admin/committees?message=ลบข้อมูลสำเร็จ!'));
+export const deleteEvent = (formData: FormData) => deleteItem(formData, 'events', '/admin/events').then(() => redirect('/admin/events?message=ลบข้อมูลสำเร็จ!'));
+export const deleteNews = (formData: FormData) => deleteItem(formData, 'news', '/admin/news').then(() => redirect('/admin/news?message=ลบข้อมูลสำเร็จ!'));
+export const deleteMeeting = (formData: FormData) => deleteItem(formData, 'meetings', '/admin/meetings').then(() => redirect('/admin/meetings?message=ลบข้อมูลสำเร็จ!'));
+export const deleteMotion = (formData: FormData) => deleteItem(formData, 'motions', '/admin/motions').then(() => redirect('/admin/motions?message=ลบข้อมูลสำเร็จ!'));
 export const deletePersonnel = async (formData: FormData) => {
     try {
         await deleteItem(formData, 'personnel', '/admin/personnel');
         redirect('/admin/personnel?message=ลบข้อมูลบุคลากรสำเร็จ!');
     } catch (e: any) {
-        redirect(`/admin/personnel?error=${e.message}`);
+        redirect(`/admin/personnel?error=${encodeURIComponent(e.message)}`);
     }
 };
 
@@ -286,6 +299,7 @@ export async function updateMotionResult(motionId: string, result: 'ผ่าน
     const { error } = await supabase.from('motions').update({ result }).eq('id', motionId);
     if (error) throw error;
     revalidatePath('/admin/motions', 'layout');
+    revalidatePath(`/admin/motions/${motionId}/edit`, 'page');
     return { success: true, message: 'อัปเดตผลการลงมติสำเร็จ!' };
   } catch (e: any) {
     return { success: false, message: `Database Error: ${e.message}` };
@@ -305,7 +319,7 @@ export async function updateAttendance(meetingId: string, formData: FormData) {
     }));
 
   if (recordsToUpsert.length === 0) {
-    return { success: false, message: 'ไม่พบข้อมูลการเข้าประชุมที่จะบันทึก' };
+    return { success: true, message: 'ไม่มีข้อมูลการเข้าประชุมให้อัปเดต' };
   }
 
   try {
