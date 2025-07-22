@@ -21,6 +21,9 @@ export default function CreatePersonnelPage() {
   const [state, dispatch] = useFormState(createPersonnel, initialState);
   const [committeeOptions, setCommitteeOptions] = useState<SelectOption[]>([]);
 
+  // --- FIX: Add state to manage selected committees for react-select ---
+  const [selectedCommittees, setSelectedCommittees] = useState<readonly SelectOption[]>([]);
+
   // State to manage role checkboxes to conditionally disable the position input
   const [isMp, setIsMp] = useState(false);
   const [isExecutive, setIsExecutive] = useState(false);
@@ -55,6 +58,7 @@ export default function CreatePersonnelPage() {
       <h1 className="mb-4">เพิ่มบุคลากรใหม่</h1>
       <div className="card shadow-sm p-4">
         <form action={dispatch}>
+          {/* ... other form fields ... */}
           <div className="mb-3">
             <label htmlFor="name" className="form-label">ชื่อ-นามสกุล</label>
             <input type="text" id="name" name="name" className={`form-control ${state.errors?.name ? 'is-invalid' : ''}`} required />
@@ -136,8 +140,22 @@ export default function CreatePersonnelPage() {
           </div>
 
           <div className="mb-3">
-            <label htmlFor="committees" className="form-label">สังกัดคณะกรรมาธิการ</label>
-            <Select id="committees" name="committees" isMulti options={committeeOptions} classNamePrefix="select" placeholder="เลือกคณะกรรมาธิการ..." />
+            <label htmlFor="committees-select" className="form-label">สังกัดคณะกรรมาธิการ</label>
+            {/* --- FIX: Make react-select a controlled component --- */}
+            <Select 
+              id="committees-select" 
+              instanceId="committees-select" // Add a unique instanceId
+              isMulti 
+              options={committeeOptions} 
+              classNamePrefix="select" 
+              placeholder="เลือกคณะกรรมาธิการ..."
+              value={selectedCommittees}
+              onChange={setSelectedCommittees}
+            />
+            {/* --- FIX: Add hidden inputs to submit data --- */}
+            {selectedCommittees.map(c => (
+              <input type="hidden" name="committees" key={c.value} value={c.value} />
+            ))}
           </div>
 
           <div className="mb-3">

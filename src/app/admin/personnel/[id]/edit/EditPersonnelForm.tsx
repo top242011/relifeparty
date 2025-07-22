@@ -34,14 +34,6 @@ export default function EditPersonnelForm({ personnel, allCommittees }: EditPers
   const [isMp, setIsMp] = useState(personnel.is_mp);
   const [isExecutive, setIsExecutive] = useState(personnel.is_executive);
 
-  // Show error toast if the form submission fails
-  useEffect(() => {
-    if (state.success === false && state.message) {
-      toast.error(state.message);
-    }
-    // Success toast is handled by redirecting with a query param
-  }, [state]);
-
   // Map committees data to the format required by react-select
   const committeeOptions: SelectOption[] = allCommittees.map(c => ({ 
     value: c.id, 
@@ -53,11 +45,23 @@ export default function EditPersonnelForm({ personnel, allCommittees }: EditPers
     option => personnel.committees?.includes(option.value)
   );
 
+  // --- FIX: Add state to manage selected committees for react-select ---
+  const [selectedCommittees, setSelectedCommittees] = useState<readonly SelectOption[]>(defaultSelectedCommittees);
+
+  // Show error toast if the form submission fails
+  useEffect(() => {
+    if (state.success === false && state.message) {
+      toast.error(state.message);
+    }
+    // Success is handled by redirecting with a query param from the server action
+  }, [state]);
+
   return (
     <>
       <h1 className="mb-4">แก้ไขข้อมูลบุคลากร</h1>
       <div className="card shadow-sm p-4">
         <form action={dispatch}>
+          {/* ... other form fields ... */}
           <div className="mb-3">
             <label htmlFor="name" className="form-label">ชื่อ-นามสกุล</label>
             <input type="text" id="name" name="name" className={`form-control ${state.errors?.name ? 'is-invalid' : ''}`} defaultValue={personnel.name} required />
@@ -139,8 +143,21 @@ export default function EditPersonnelForm({ personnel, allCommittees }: EditPers
           </div>
 
           <div className="mb-3">
-            <label htmlFor="committees" className="form-label">สังกัดคณะกรรมาธิการ</label>
-            <Select id="committees" name="committees" isMulti options={committeeOptions} defaultValue={defaultSelectedCommittees} classNamePrefix="select" />
+            <label htmlFor="committees-select" className="form-label">สังกัดคณะกรรมาธิการ</label>
+            {/* --- FIX: Make react-select a controlled component --- */}
+            <Select 
+              id="committees-select" 
+              instanceId="committees-select-edit" // Add a unique instanceId
+              isMulti 
+              options={committeeOptions}
+              classNamePrefix="select"
+              value={selectedCommittees}
+              onChange={setSelectedCommittees}
+            />
+            {/* --- FIX: Add hidden inputs to submit data --- */}
+            {selectedCommittees.map(c => (
+              <input type="hidden" name="committees" key={c.value} value={c.value} />
+            ))}
           </div>
 
           <div className="mb-3">
