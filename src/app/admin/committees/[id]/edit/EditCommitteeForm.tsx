@@ -21,9 +21,6 @@ export default function EditCommitteeForm({ committee }: { committee: Committee 
     if (state.success) {
       toast.success(state.message || 'บันทึกข้อมูลสำเร็จ!');
       // Optional: redirect after a delay
-      setTimeout(() => {
-        router.push('/admin/committees');
-      }, 1500);
     } else if (state.message) {
       toast.error(state.message);
     }

@@ -25,7 +25,6 @@ export default function EditEventForm({ event }: { event: Event }) {
   useEffect(() => {
     if (state.success) {
       toast.success(state.message || 'บันทึกข้อมูลสำเร็จ!');
-      setTimeout(() => router.push('/admin/events'), 1500);
     } else if (state.message) {
       toast.error(state.message);
     }
