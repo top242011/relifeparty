@@ -1,82 +1,66 @@
 // src/app/admin/motions/[id]/edit/EditMotionForm.tsx
+// This is the Client Component, responsible for UI and user interaction.
+
 'use client';
 
-import { useState } from 'react';
+import { updateMotionResult } from '@/lib/actions'; // This action is now robust
 import type { Motion } from '@/lib/definitions';
-import { createClient } from '../../../../../../utils/supabase/client';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
-interface EditMotionFormProps {
-  motion: Motion;
-  // หากต้องการส่งข้อมูลผู้ลงคะแนนมาด้วย ก็เพิ่ม props ที่นี่
-}
+export default function EditMotionForm({ motion }: { motion: Motion }) {
 
-export default function EditMotionForm({ motion }: EditMotionFormProps) {
-  const router = useRouter();
-  const supabase = createClient();
-  
-  const [title, setTitle] = useState(motion.title);
-  const [details, setDetails] = useState(motion.details || '');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSaving(true);
-    setMessage('');
-
-    const { error } = await supabase
-      .from('motions')
-      .update({ title, details })
-      .eq('id', motion.id);
-
-    if (error) {
-      setMessage(`เกิดข้อผิดพลาด: ${error.message}`);
+  const handleUpdateResult = async (result: 'ผ่าน' | 'ไม่ผ่าน' | 'รอลงมติ') => {
+    const response = await updateMotionResult(motion.id, result);
+    if (response.success) {
+        toast.success(response.message || 'อัปเดตสำเร็จ!');
+        // No need to router.refresh() as revalidatePath in the action handles it
     } else {
-      setMessage('บันทึกข้อมูลสำเร็จ!');
-      router.push('/admin/motions');
-      router.refresh();
+        toast.error(response.message || 'เกิดข้อผิดพลาด');
     }
-    setSaving(false);
   };
 
   return (
-    <div className="container py-4">
-      <h1 className="mb-4">แก้ไขญัตติ</h1>
-      <form onSubmit={handleSubmit} className="card shadow-sm p-4">
-        <div className="mb-3">
-          <label htmlFor="title" className="form-label">ชื่อญัตติ</label>
-          <input
-            id="title"
-            type="text"
-            className="form-control"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-          />
-        </div>
-        <div className="mb-3">
-          <label htmlFor="details" className="form-label">รายละเอียด</label>
-          <textarea
-            id="details"
-            className="form-control"
-            rows={4}
-            value={details}
-            onChange={(e) => setDetails(e.target.value)}
-          ></textarea>
-        </div>
+    <>
+      <h1 className="mb-4">แก้ไขญัตติ: {motion.title}</h1>
+      <div className="card shadow-sm p-4">
+        {/* This form can be used in the future to edit title/details */}
+        <form>
+          <div className="mb-3">
+            <label htmlFor="title" className="form-label">ชื่อญัตติ</label>
+            <input
+              id="title"
+              type="text"
+              className="form-control"
+              defaultValue={motion.title}
+              readOnly // For now, it's read-only
+            />
+          </div>
+          <div className="mb-3">
+            <label htmlFor="details" className="form-label">รายละเอียด</label>
+            <textarea
+              id="details"
+              className="form-control"
+              rows={4}
+              defaultValue={motion.details || ''}
+              readOnly // For now, it's read-only
+            ></textarea>
+          </div>
+        </form>
+      </div>
 
-        {message && <div className={`alert mt-3 ${message.includes('สำเร็จ') ? 'alert-success' : 'alert-danger'}`}>{message}</div>}
-
-        <div className="d-flex justify-content-end gap-2 mt-4">
-          <Link href="/admin/motions" className="btn btn-secondary">ยกเลิก</Link>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
-          </button>
+      <div className="card shadow-sm p-4 mt-4">
+        <h5 className="mb-3">สรุปผลการลงมติ</h5>
+        <p>ผลปัจจุบัน: <span className="fw-bold">{motion.result || 'รอลงมติ'}</span></p>
+        <div className="d-flex justify-content-end gap-2">
+            <button className="btn btn-outline-secondary" onClick={() => handleUpdateResult('รอลงมติ')}>ตั้งเป็น "รอลงมติ"</button>
+            <button className="btn btn-danger" onClick={() => handleUpdateResult('ไม่ผ่าน')}>ยืนยันผล: "ไม่ผ่าน"</button>
+            <button className="btn btn-success" onClick={() => handleUpdateResult('ผ่าน')}>ยืนยันผล: "ผ่าน"</button>
         </div>
-      </form>
-      {/* ส่วนของการบันทึกผลโหวต สามารถเพิ่มเข้ามาตรงนี้ได้ในอนาคต */}
-    </div>
+      </div>
+       <div className="mt-4">
+          <Link href="/admin/motions" className="btn btn-secondary">กลับไปหน้ารายการ</Link>
+      </div>
+    </>
   );
 }

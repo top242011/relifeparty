@@ -1,9 +1,10 @@
 // src/app/admin/news/[id]/edit/EditNewsForm.tsx
+// This is the Client Component, responsible for UI and form state.
+
 'use client';
 
 import { useEffect } from 'react';
 import { useFormState } from 'react-dom';
-import { useRouter } from 'next/navigation';
 import { updateNews } from '@/lib/actions';
 import type { FormState, News } from '@/lib/definitions';
 import SubmitButton from '@/components/admin/SubmitButton';
@@ -11,32 +12,26 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 export default function EditNewsForm({ news }: { news: News }) {
-  const router = useRouter();
   const initialState: FormState = { message: null, errors: {}, success: false };
 
-  // **FIX:** Use an inline action to correctly pass the ID to the server action.
-  const [state, dispatch] = useFormState(
-    async (prevState: FormState, formData: FormData) => {
-      return updateNews(news.id, prevState, formData);
-    },
-    initialState
-  );
+  // Bind the news ID to the server action
+  const updateNewsWithId = updateNews.bind(null, news.id);
+  const [state, dispatch] = useFormState(updateNewsWithId, initialState);
 
   useEffect(() => {
+    // Server action handles redirection, we only show toasts here
     if (state.success) {
       toast.success(state.message || 'บันทึกข้อมูลสำเร็จ!');
     } else if (state.message) {
       toast.error(state.message);
     }
-  }, [state, router]);
+  }, [state]);
 
   return (
     <>
       <h1 className="mb-4 text-dark-blue">แก้ไขข่าวสาร</h1>
       <div className="card shadow-sm p-4">
         <form action={dispatch}>
-          {/* Hidden input for ID is no longer needed */}
-          
           <div className="mb-3">
             <label htmlFor="title" className="form-label">หัวข้อข่าว</label>
             <input type="text" className={`form-control ${state.errors?.title ? 'is-invalid' : ''}`} id="title" name="title" defaultValue={news.title} required />
