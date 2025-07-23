@@ -7,18 +7,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { FormState, Personnel } from '../lib/definitions';
 
-// --- Zod Schemas (no changes) ---
-const BaseSchemaWithId = z.object({
-  id: z.string(),
-  description: z.string().optional(),
-});
-const PolicySchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กรุณากรอกชื่อนโยบาย') });
-const CommitteeSchema = BaseSchemaWithId.extend({ name: z.string().min(1, 'กรุณากรอกชื่อคณะกรรมาธิการ') });
-const EventSchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กรุณากรอกชื่อกิจกรรม'), description: z.string().min(1, 'กรุณากรอกรายละเอียด'), eventDate: z.string().min(1, 'กรุณาเลือกวันที่'), location: z.string().optional() });
-const NewsSchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กรุณากรอกหัวข้อข่าว'), content: z.string().min(1, 'กรุณากรอกเนื้อหาข่าว'), publishDate: z.string().min(1, 'กรุณาเลือกวันที่เผยแพร่'), imageUrl: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')) });
-const MeetingSchema = z.object({ id: z.string().optional(), topic: z.string().min(1, 'กรุณากรอกหัวข้อการประชุม'), date: z.string().min(1, 'กรุณาเลือกวันที่ประชุม'), scope: z.string() });
-const MotionSchema = z.object({ id: z.string().optional(), title: z.string().min(1, 'กรุณากรอกชื่อญัตติ'), details: z.string().optional(), meeting_id: z.string().optional().nullable(), proposer_id: z.string().optional().nullable() });
-
+// --- Zod Schemas ---
+// --- FIX: Added a more robust schema for Personnel to handle nullable year correctly ---
 const PersonnelFormSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, { message: 'กรุณากรอกชื่อ-นามสกุล' }),
@@ -31,10 +21,25 @@ const PersonnelFormSchema = z.object({
   is_executive: z.boolean(),
   campus: z.string(),
   faculty: z.string().optional().nullable(),
-  year: z.coerce.number().optional().nullable(),
+  // This is the key fix: Use preprocess to handle empty strings before validation
+  year: z.preprocess(
+    (val) => (val === '' || val == null ? null : Number(val)),
+    z.number().int().positive('ชั้นปีต้องเป็นค่าบวก').optional().nullable()
+  ),
   gender: z.string().optional().nullable(),
   committees: z.array(z.string()).optional(),
 });
+
+const BaseSchemaWithId = z.object({
+  id: z.string(),
+  description: z.string().optional(),
+});
+const PolicySchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กรุณากรอกชื่อนโยบาย') });
+const CommitteeSchema = BaseSchemaWithId.extend({ name: z.string().min(1, 'กรุณากรอกชื่อคณะกรรมาธิการ') });
+const EventSchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กรุณากรอกชื่อกิจกรรม'), description: z.string().min(1, 'กรุณากรอกรายละเอียด'), eventDate: z.string().min(1, 'กรุณาเลือกวันที่'), location: z.string().optional() });
+const NewsSchema = BaseSchemaWithId.extend({ title: z.string().min(1, 'กรุณากรอกหัวข้อข่าว'), content: z.string().min(1, 'กรุณากรอกเนื้อหาข่าว'), publishDate: z.string().min(1, 'กรุณาเลือกวันที่เผยแพร่'), imageUrl: z.string().url('URL รูปภาพไม่ถูกต้อง').optional().or(z.literal('')) });
+const MeetingSchema = z.object({ id: z.string().optional(), topic: z.string().min(1, 'กรุณากรอกหัวข้อการประชุม'), date: z.string().min(1, 'กรุณาเลือกวันที่ประชุม'), scope: z.string() });
+const MotionSchema = z.object({ id: z.string().optional(), title: z.string().min(1, 'กรุณากรอกชื่อญัตติ'), details: z.string().optional(), meeting_id: z.string().optional().nullable(), proposer_id: z.string().optional().nullable() });
 
 
 // --- Generic Action Handler for simple forms ---
@@ -122,10 +127,6 @@ function preparePersonnelData(id: string | null, formData: FormData) {
         studentCouncilPosition = '-';
     }
 
-    // --- FIX: Safely handle nullable/empty values before validation ---
-    const yearValue = formData.get('year');
-    const facultyValue = formData.get('faculty');
-
     const dataToValidate = {
         name: formData.get('name'),
         party_position: formData.get('party_position'),
@@ -136,13 +137,12 @@ function preparePersonnelData(id: string | null, formData: FormData) {
         is_mp: isMp,
         is_executive: isExecutive,
         campus: formData.get('campus'),
-        faculty: facultyValue === '' ? null : facultyValue,
-        year: yearValue === '' ? null : yearValue, // Convert empty string to null
+        faculty: formData.get('faculty'),
+        year: formData.get('year'),
         gender: formData.get('gender'),
         committees: formData.getAll('committees').map(String),
     };
 
-    // Add id only if it exists (for update operations)
     if (id) {
         (dataToValidate as any).id = id;
     }
@@ -153,18 +153,18 @@ function preparePersonnelData(id: string | null, formData: FormData) {
 
 // --- Personnel Actions ---
 export async function createPersonnel(prevState: FormState, formData: FormData): Promise<FormState> {
-    const supabase = createClient();
-    
-    const validatedFields = preparePersonnelData(null, formData);
-
-    if (!validatedFields.success) {
-        return { success: false, errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง' };
-    }
-
-    const imageFile = formData.get('image_file') as File;
-    let imageUrl: string | null = null;
-
+    // --- FIX: Wrap entire action in a try...catch block as a final safety measure ---
     try {
+        const supabase = createClient();
+        const validatedFields = preparePersonnelData(null, formData);
+
+        if (!validatedFields.success) {
+            return { success: false, errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง' };
+        }
+
+        const imageFile = formData.get('image_file') as File;
+        let imageUrl: string | null = null;
+
         if (imageFile && imageFile.size > 0) { 
             imageUrl = await uploadImage(supabase, imageFile); 
         }
@@ -182,18 +182,18 @@ export async function createPersonnel(prevState: FormState, formData: FormData):
 }
 
 export async function updatePersonnel(id: string, prevState: FormState, formData: FormData): Promise<FormState> {
-    const supabase = createClient();
-    
-    const validatedFields = preparePersonnelData(id, formData);
-
-    if (!validatedFields.success) {
-        return { success: false, errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง' };
-    }
-
-    const imageFile = formData.get('image_file') as File;
-    const { id: personnelId, ...dataToUpdate } = validatedFields.data;
-
+    // --- FIX: Wrap entire action in a try...catch block as a final safety measure ---
     try {
+        const supabase = createClient();
+        const validatedFields = preparePersonnelData(id, formData);
+
+        if (!validatedFields.success) {
+            return { success: false, errors: validatedFields.error.flatten().fieldErrors, message: 'ข้อมูลไม่ถูกต้อง' };
+        }
+
+        const imageFile = formData.get('image_file') as File;
+        const { id: personnelId, ...dataToUpdate } = validatedFields.data;
+
         let imageUrl: string | null | undefined = undefined; 
         if (imageFile && imageFile.size > 0) {
             imageUrl = await uploadImage(supabase, imageFile);
