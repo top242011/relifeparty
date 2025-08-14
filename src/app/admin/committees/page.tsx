@@ -2,6 +2,7 @@ import Link from 'next/link';
 // --- FIX: Remove direct imports from supabase/ssr and cookies ---
 // import { cookies } from 'next/headers';
 // import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { createClient } from '../../../../utils/supabase/server'; // --- FIX: Import the centralized client ---
 import DeleteButton from '@/components/admin/DeleteButton';
 import { deleteCommittee } from '@/lib/actions';
@@ -14,7 +15,7 @@ interface Committee {
 
 export default async function AdminCommitteesPage() {
   // --- FIX: Use the centralized createClient function ---
-  const supabase = createClient();
+  const supabase = createClient(cookies());
 
   const { data: committees, error } = await supabase
     .from('committees')

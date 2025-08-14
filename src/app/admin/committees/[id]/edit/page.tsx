@@ -1,4 +1,5 @@
 // src/app/admin/committees/[id]/edit/page.tsx
+import { cookies } from 'next/headers';
 import { createClient } from '../../../../../../utils/supabase/server';
 import { notFound } from 'next/navigation';
 import EditCommitteeForm from './EditCommitteeForm'; // Import the new form component
@@ -7,7 +8,7 @@ import type { Committee } from '@/lib/definitions';
 export const dynamic = 'force-dynamic';
 
 export default async function EditCommitteePage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   const { id } = params;
 
   const { data: committee, error } = await supabase

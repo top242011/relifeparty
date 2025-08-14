@@ -1,4 +1,5 @@
 // src/app/admin/dashboard/page.tsx
+import { cookies } from 'next/headers';
 import { createClient } from '../../../../utils/supabase/server';
 import { fetchCardData, fetchLatestEvents } from '@/lib/data';
 import type { LatestEvent } from '@/lib/definitions';
@@ -33,7 +34,7 @@ const StatCard = ({ icon, value, title, link, linkText }: { icon: React.ReactNod
 
 
 export default async function AdminDashboardPage() {
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   
   const [
     { data: { user } },

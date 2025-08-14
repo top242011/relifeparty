@@ -1,4 +1,5 @@
 // src/app/admin/meetings/[id]/edit/page.tsx
+import { cookies } from 'next/headers';
 import { createClient } from '../../../../../../utils/supabase/server';
 import { notFound } from 'next/navigation';
 import EditMeetingForm from './EditMeetingForm';
@@ -8,7 +9,7 @@ import type { Meeting, MeetingFile, AttendanceRecordWithPersonnel } from '@/lib/
 export const dynamic = 'force-dynamic';
 
 export default async function EditMeetingPage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   const { id } = params;
 
   // 2. ดึงข้อมูลทั้งหมดพร้อมกัน (การประชุม, ไฟล์, และการเข้าประชุม)

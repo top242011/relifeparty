@@ -1,4 +1,5 @@
 // src/app/admin/personnel/[id]/edit/page.tsx
+import { cookies } from 'next/headers';
 import { createClient } from '../../../../../../utils/supabase/server';
 import { notFound } from 'next/navigation';
 import EditPersonnelForm from './EditPersonnelForm';
@@ -7,7 +8,7 @@ import type { Personnel, Committee } from '@/lib/definitions';
 export const dynamic = 'force-dynamic';
 
 export default async function EditPersonnelPage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   const { id } = params;
 
   // Fetch personnel and all committees concurrently

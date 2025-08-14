@@ -1,6 +1,7 @@
 // src/lib/actions.ts
 'use server';
 
+import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -51,7 +52,7 @@ async function handleFormAction<T extends z.ZodType<any, any>>(
     action: 'create' | 'update',
     idToUpdate?: string
 ): Promise<FormState> {
-    const supabase = createClient();
+    const supabase = createClient(cookies());
     const rawFormData = Object.fromEntries(formData.entries());
     
     if (action === 'update' && idToUpdate) {
@@ -155,7 +156,7 @@ function preparePersonnelData(id: string | null, formData: FormData) {
 export async function createPersonnel(prevState: FormState, formData: FormData): Promise<FormState> {
     // --- FIX: Wrap entire action in a try...catch block as a final safety measure ---
     try {
-        const supabase = createClient();
+        const supabase = createClient(cookies());
         const validatedFields = preparePersonnelData(null, formData);
 
         if (!validatedFields.success) {
@@ -184,7 +185,7 @@ export async function createPersonnel(prevState: FormState, formData: FormData):
 export async function updatePersonnel(id: string, prevState: FormState, formData: FormData): Promise<FormState> {
     // --- FIX: Wrap entire action in a try...catch block as a final safety measure ---
     try {
-        const supabase = createClient();
+        const supabase = createClient(cookies());
         const validatedFields = preparePersonnelData(id, formData);
 
         if (!validatedFields.success) {
@@ -234,7 +235,7 @@ export const updateNews = (id: string, prevState: FormState, formData: FormData)
 
 // Generic Delete Action
 async function deleteItem(formData: FormData, tableName: string, revalidatePathUrl: string): Promise<{ success: boolean; message: string }> {
-    const supabase = createClient();
+    const supabase = createClient(cookies());
     const id = formData.get('id')?.toString();
     if (!id) return { success: false, message: 'ไม่พบ ID สำหรับการลบ' };
     try {
@@ -263,7 +264,7 @@ export const deletePersonnel = async (formData: FormData) => redirect(createRedi
 // Other specific actions
 export async function updateMotionResult(motionId: string, result: 'ผ่าน' | 'ไม่ผ่าน' | 'รอลงมติ') {
   'use server';
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   try {
     const { error } = await supabase.from('motions').update({ result }).eq('id', motionId);
     if (error) return { success: false, message: `Database Error: ${error.message}` };
@@ -277,7 +278,7 @@ export async function updateMotionResult(motionId: string, result: 'ผ่าน
 
 export async function updateAttendance(meetingId: string, formData: FormData) {
   'use server';
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   const rawData = Object.fromEntries(formData.entries());
   const recordsToUpsert = Object.entries(rawData)
     .filter(([key]) => key.startsWith('status-'))

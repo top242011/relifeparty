@@ -1,13 +1,14 @@
 // src/app/admin/events/page.tsx
 
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { createClient } from '../../../../utils/supabase/server'; // แก้ไขที่นี่
 import DeleteButton from '@/components/admin/DeleteButton';
 import { deleteEvent } from '@/lib/actions';
 import type { Event } from '@/lib/definitions'; // แก้ไขที่นี่
 
 export default async function AdminEventsPage() {
-  const supabase = createClient(); // แก้ไขที่นี่
+  const supabase = createClient(cookies()); // แก้ไขที่นี่
 
   const { data: events, error } = await supabase
     .from('events')

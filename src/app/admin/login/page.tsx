@@ -1,6 +1,6 @@
 // src/app/admin/login/page.tsx
+import { cookies } from "next/headers";
 import { createClient } from "../../../../utils/supabase/server";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache"; // 1. Import revalidatePath
 
@@ -14,7 +14,7 @@ export default function LoginPage({
 
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const supabase = createClient();
+    const supabase = createClient(cookies());
 
     const { error } = await supabase.auth.signInWithPassword({
       email,

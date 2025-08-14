@@ -1,12 +1,13 @@
 // src/app/page.tsx
 export const dynamic = 'force-dynamic';
 
+import { cookies } from "next/headers";
 import { createClient } from "../../utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function Home() {
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   const {
     data: { user },
   } = await supabase.auth.getUser();

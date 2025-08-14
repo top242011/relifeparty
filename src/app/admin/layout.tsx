@@ -1,5 +1,6 @@
 // src/app/admin/layout.tsx
 
+import { cookies } from "next/headers";
 import { createClient } from "../../../utils/supabase/server";
 import AdminNavbar from "@/components/admin/AdminNavbar";
 import AuthProvider from "./AuthProvider";
@@ -10,7 +11,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = createClient();
+  const supabase = createClient(cookies());
 
   const {
     data: { user },

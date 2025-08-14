@@ -1,14 +1,12 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 // เราไม่จำเป็นต้อง import SupabaseClient อีกต่อไป
-import { cookies } from 'next/headers'
 
 // This function creates a Supabase client that is configured for Server Components.
 // It uses the 'cookies' function from Next.js to securely handle authentication.
 
 // FIX: ลบการประกาศ Return Type (: SupabaseClient) ออก
 // แล้วปล่อยให้ TypeScript อนุมาน Type ที่ถูกต้องจากฟังก์ชัน createServerClient โดยตรง
-export function createClient() {
-  const cookieStore = cookies()
+export function createClient(cookieStore: ReturnType<typeof import('next/headers').cookies>) {
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,4 +1,5 @@
 // src/lib/data.ts
+import { cookies } from 'next/headers';
 import { createClient } from '../../utils/supabase/server';
 import { unstable_noStore as noStore } from 'next/cache';
 import type { Committee, Event, Personnel, AttendanceRecordWithPersonnel, DashboardCardData, LatestEvent, PersonnelStats } from './definitions';
@@ -17,7 +18,7 @@ export async function fetchFilteredPersonnel(
   sortOrder: 'asc' | 'desc'
 ) {
   noStore();
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   try {
@@ -63,7 +64,7 @@ export async function fetchPersonnelPages(
     role: string | null
 ) {
     noStore();
-    const supabase = createClient();
+    const supabase = createClient(cookies());
     try {
         let supabaseQuery = supabase
             .from('personnel')
@@ -102,7 +103,7 @@ export async function fetchPersonnelPages(
 // UPDATED: fetchPersonnelStats to include new aggregations
 export async function fetchPersonnelStats(): Promise<PersonnelStats> {
     noStore();
-    const supabase = createClient();
+    const supabase = createClient(cookies());
     try {
         const { data, error } = await supabase
             .from('personnel')
@@ -171,7 +172,7 @@ export async function fetchPersonnelStats(): Promise<PersonnelStats> {
 
 export async function fetchCardData(): Promise<DashboardCardData> {
   noStore();
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   try {
     const [
       personnelResult,
@@ -220,7 +221,7 @@ export async function fetchCardData(): Promise<DashboardCardData> {
 
 export async function fetchLatestEvents(): Promise<LatestEvent[]> {
     noStore();
-    const supabase = createClient();
+    const supabase = createClient(cookies());
     try {
         const { data, error } = await supabase
             .from('events')
@@ -243,7 +244,7 @@ export async function fetchLatestEvents(): Promise<LatestEvent[]> {
 
 export async function fetchAttendanceData(meetingId: string): Promise<AttendanceRecordWithPersonnel[]> {
   noStore();
-  const supabase = createClient();
+  const supabase = createClient(cookies());
   try {
     const { data: meetingData, error: meetingError } = await supabase
         .from('meetings')
@@ -297,7 +298,7 @@ export async function fetchAttendanceData(meetingId: string): Promise<Attendance
 // --- Helper function to fetch all committees ---
 export async function fetchAllCommittees(): Promise<Committee[]> {
     noStore();
-    const supabase = createClient();
+    const supabase = createClient(cookies());
     try {
         const { data, error } = await supabase
             .from('committees')
